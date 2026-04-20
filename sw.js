@@ -1,11 +1,9 @@
-// Roam. Service Worker — v1
-const CACHE = 'roam-v1';
+// Roam. Service Worker — v2
+const CACHE = 'roam-v2';
+const BASE = 'https://llllllllinh.github.io/roam/';
 const SHELL = [
-  '/roam/bloom-calendar.html',
-  '/roam/manifest.json',
-  '/roam/icon.svg',
-  'https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,300;0,400;0,500;1,300;1,400&family=DM+Sans:wght@300;400;500&display=swap',
-  'https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js',
+  BASE + 'index.html',
+  BASE + 'icon.svg',
 ];
 
 self.addEventListener('install', e => {
@@ -17,9 +15,10 @@ self.addEventListener('install', e => {
 });
 
 self.addEventListener('activate', e => {
+  // Wipe ALL old caches so stale 404s are gone
   e.waitUntil(
     caches.keys()
-      .then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k))))
+      .then(keys => Promise.all(keys.map(k => caches.delete(k))))
       .then(() => self.clients.claim())
   );
 });
@@ -33,15 +32,11 @@ self.addEventListener('fetch', e => {
     caches.match(e.request).then(cached => {
       if(cached) return cached;
       return fetch(e.request).then(response => {
-        if(response && response.status === 200 && response.type !== 'opaque') {
+        if(response && response.status === 200) {
           caches.open(CACHE).then(cache => cache.put(e.request, response.clone()));
         }
         return response;
-      }).catch(() => {
-        if(e.request.destination === 'document') {
-          return caches.match('/roam/bloom-calendar.html');
-        }
-      });
+      }).catch(() => caches.match(BASE + 'index.html'));
     })
   );
 });
