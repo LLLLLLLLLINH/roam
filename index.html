@@ -8,7 +8,7 @@
 <meta name="theme-color" content="#4A7C59">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Roam.">
 <link rel="apple-touch-icon" href="icon.svg">
 <script>
@@ -76,7 +76,7 @@ h1,h2,h3 { font-family: var(--font-display); font-weight: 400; }
   background: var(--cream);
   align-items: center;
   justify-content: center;
-  padding: 32px 24px;
+  padding: max(32px, calc(env(safe-area-inset-top) + 16px)) 24px 32px;
   text-align: center;
   position: relative;
   overflow: hidden;
@@ -110,7 +110,7 @@ h1,h2,h3 { font-family: var(--font-display); font-weight: 400; }
 .btn-sm { padding: 8px 14px; font-size: 0.85rem; }
 
 /* ── AUTH ── */
-#screen-auth { background: var(--cream); padding: 32px 24px; }
+#screen-auth { background: var(--cream); padding: max(32px, calc(env(safe-area-inset-top) + 16px)) 24px 60px; }
 .auth-header { margin-bottom: 32px; }
 .auth-title { font-family: var(--font-display); font-size: 2rem; color: var(--moss); }
 .auth-sub { font-size: 0.9rem; color: var(--ink-muted); margin-top: 4px; }
@@ -128,7 +128,7 @@ h1,h2,h3 { font-family: var(--font-display); font-weight: 400; }
 /* ── MAIN APP ── */
 #screen-app { display: none; flex-direction: column; }
 #screen-app.active { display: flex; }
-.app-header { background: #fff; border-bottom: 1px solid var(--border); padding: 14px 20px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 50; }
+.app-header { background: #fff; border-bottom: 1px solid var(--border); padding: 14px 20px; padding-top: max(14px, calc(env(safe-area-inset-top) + 10px)); display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 50; }
 .app-logo { font-family: var(--font-display); font-size: 1.3rem; color: var(--moss); }
 .app-logo em { color: var(--terracotta); font-style: italic; }
 .header-actions { display: flex; gap: 8px; }
@@ -235,7 +235,7 @@ h1,h2,h3 { font-family: var(--font-display); font-weight: 400; }
 /* ── MODAL ── */
 .modal-backdrop { position: fixed; inset: 0; background: rgba(28,28,26,0.55); z-index: 100; display: none; align-items: flex-end; }
 .modal-backdrop.open { display: flex; }
-.modal { background: var(--cream); border-radius: 20px 20px 0 0; padding: 0 20px 32px; width: 100%; max-height: 92dvh; overflow-y: auto; animation: slideUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); }
+.modal { background: var(--cream); border-radius: 20px 20px 0 0; padding: 0 20px max(32px, calc(env(safe-area-inset-bottom) + 16px)); width: 100%; max-height: 92dvh; overflow-y: auto; animation: slideUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); }
 @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
 .modal-handle { width: 36px; height: 4px; background: var(--border); border-radius: 4px; margin: 12px auto 20px; }
 .modal-title { font-family: var(--font-display); font-size: 1.4rem; color: var(--ink); margin-bottom: 20px; }
@@ -290,7 +290,7 @@ h1,h2,h3 { font-family: var(--font-display); font-weight: 400; }
 /* Base: very small phones 320px */
 html { font-size: 14px; }
 .tab-content { padding: 14px 14px 80px; }
-.app-header { padding: 12px 14px; }
+.app-header { padding: 12px 14px; padding-top: max(12px, calc(env(safe-area-inset-top) + 8px)); }
 .week-title { font-size: 1.3rem; }
 .modal { padding: 0 14px 28px; }
 .modal-title { font-size: 1.2rem; }
@@ -314,7 +314,7 @@ html { font-size: 14px; }
 @media (min-width: 375px) {
   html { font-size: 15px; }
   .tab-content { padding: 16px 16px 80px; }
-  .app-header { padding: 13px 16px; }
+  .app-header { padding: 13px 16px; padding-top: max(13px, calc(env(safe-area-inset-top) + 9px)); }
   .week-title { font-size: 1.4rem; }
   .modal { padding: 0 16px 28px; }
   .modal-title { font-size: 1.3rem; }
@@ -334,7 +334,7 @@ html { font-size: 14px; }
 @media (min-width: 390px) {
   html { font-size: 15px; }
   .tab-content { padding: 18px 18px 82px; }
-  .app-header { padding: 14px 18px; }
+  .app-header { padding: 14px 18px; padding-top: max(14px, calc(env(safe-area-inset-top) + 10px)); }
   .week-title { font-size: 1.5rem; }
   .modal { padding: 0 18px 30px; }
   .cat-item { padding: 10px 8px; font-size: 0.8rem; }
@@ -355,7 +355,7 @@ html { font-size: 14px; }
 @media (min-width: 430px) {
   html { font-size: 16px; }
   .tab-content { padding: 20px 20px 86px; }
-  .app-header { padding: 14px 20px; }
+  .app-header { padding: 14px 20px; padding-top: max(14px, calc(env(safe-area-inset-top) + 10px)); }
   .week-title { font-size: 1.6rem; }
   .modal { padding: 0 20px 32px; }
   .modal-title { font-size: 1.4rem; }
@@ -383,7 +383,7 @@ html { font-size: 14px; }
 
 /* Landscape phone: make modal scrollable, reduce header */
 @media (max-height: 600px) and (orientation: landscape) {
-  .app-header { padding: 8px 16px; }
+  .app-header { padding: 8px 16px; padding-top: max(8px, calc(env(safe-area-inset-top) + 4px)); }
   .bottom-nav { padding: 4px 0; }
   .nav-item { padding: 4px; gap: 2px; }
   .nav-item svg { width: 18px; height: 18px; }
@@ -561,11 +561,18 @@ html { font-size: 14px; }
      AUTH
 ═══════════════════════════════════════ -->
 <div class="screen" id="screen-auth">
-  <div style="max-width: 420px; width: 100%; margin: 0 auto; padding: 40px 24px 60px; flex: 1; display: flex; flex-direction: column; justify-content: center;">
+  <div style="max-width: 420px; width: 100%; margin: 0 auto; padding: 32px 24px 60px; flex: 1; display: flex; flex-direction: column; justify-content: center;">
     <div class="auth-header">
       <div style="font-family: var(--font-display); font-size: 1.1rem; color: var(--moss); margin-bottom: 20px; cursor: pointer;" onclick="showScreen('onboard')">← Roam.</div>
       <div class="auth-title" id="auth-title">Create account</div>
       <div class="auth-sub" id="auth-sub">Start growing your garden</div>
+    </div>
+
+    <!-- iOS PWA warning — shown when in standalone mode and no account found -->
+    <div id="pwa-notice" style="display:none;background:var(--sage-pale);border:1.5px solid var(--sage-light);border-radius:var(--r);padding:14px 16px;margin-bottom:20px;">
+      <div style="font-size:0.85rem;font-weight:500;color:var(--moss);margin-bottom:6px;">📱 First time in the app?</div>
+      <div style="font-size:0.8rem;color:var(--ink-light);line-height:1.5;margin-bottom:10px;">The home screen app has its own storage, separate from Safari. Create a new account here, or paste a transfer code from your Safari account below.</div>
+      <button class="btn btn-sm btn-secondary btn-full" onclick="showTransferImport()">Import account from Safari →</button>
     </div>
 
     <div id="auth-form-signup">
@@ -600,9 +607,17 @@ html { font-size: 14px; }
       <button class="btn btn-primary btn-full" style="margin-top: 8px;" onclick="doLogin()">Sign in →</button>
       <div class="auth-switch">New here? <a onclick="showAuth('signup')">Create account</a></div>
     </div>
+
+    <!-- Transfer import panel -->
+    <div id="transfer-import-panel" style="display:none;margin-top:20px;">
+      <div style="font-size:0.8rem;font-weight:500;color:var(--ink-light);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.04em;">Paste transfer code</div>
+      <textarea id="transfer-import-code" class="form-input" rows="3" placeholder="Paste your transfer code here..." style="resize:none;font-family:var(--font-mono,monospace);font-size:0.75rem;"></textarea>
+      <button class="btn btn-primary btn-full" style="margin-top:8px;" onclick="doImportTransfer()">Import account</button>
+      <div class="form-error show" id="err-transfer" style="display:none;">Invalid transfer code</div>
+      <button class="btn btn-ghost btn-full" style="margin-top:4px;" onclick="document.getElementById('transfer-import-panel').style.display='none'">Cancel</button>
+    </div>
   </div>
 
-  <!-- decorative -->
   <svg style="position:fixed;bottom:0;left:0;width:180px;pointer-events:none;opacity:0.12;" viewBox="0 0 180 140" fill="none">
     <path d="M10 130 Q40 110 80 120 Q120 130 160 115 L160 140 L10 140Z" fill="#4A7C59"/>
     <path d="M30 120 Q29 95 30 75" stroke="#4A7C59" stroke-width="2.5" stroke-linecap="round"/>
@@ -712,6 +727,10 @@ html { font-size: 14px; }
     <div class="settings-item" onclick="showNotifInfo()">
       <span class="settings-label">Reminders</span>
       <span class="settings-value">Day before</span>
+    </div>
+    <div class="settings-item" onclick="exportTransferCode()">
+      <span class="settings-label">📲 Transfer to home screen app</span>
+      <span class="settings-value">Copy your data code</span>
     </div>
     <div class="settings-item" onclick="showAbout()">
       <span class="settings-label">About Roam.</span>
@@ -916,6 +935,10 @@ function showScreen(id) {
 
 function showAuth(mode) {
   showScreen('auth');
+  // Show iOS PWA notice if running as installed app with no account
+  const isPWA = window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
+  document.getElementById('pwa-notice').style.display = isPWA ? 'block' : 'none';
+
   if(mode === 'login') {
     document.getElementById('auth-title').textContent = 'Welcome back';
     document.getElementById('auth-sub').textContent = 'Sign in to your garden';
@@ -2631,6 +2654,73 @@ function loadDemoGarden() {
 
 function showNotifInfo() { showToast('Reminders shown in the bell icon 🔔'); }
 function showAbout() { showToast('Roam. v1.0 — grow your shared garden 🌿'); }
+
+// ── Account transfer (Safari ↔ PWA) ───────────────────────────
+function exportTransferCode() {
+  if(!currentUser) return;
+  const data = {
+    v: 1,
+    users: DB.get('users') || {},
+    events: {},
+    session: { username: currentUser.username }
+  };
+  // Export all events for this garden
+  const gardenId = currentUser.gardenId;
+  data.events[gardenId] = DB.get('events_' + gardenId) || [];
+
+  const code = btoa(JSON.stringify(data));
+  navigator.clipboard.writeText(code).then(() => {
+    showToast('Transfer code copied! Paste it in the home screen app 📋');
+  }).catch(() => {
+    // Show in a modal if clipboard fails
+    const modal = document.createElement('div');
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(28,28,26,0.6);z-index:600;display:flex;align-items:flex-end;';
+    modal.innerHTML = `
+      <div style="background:var(--cream);border-radius:20px 20px 0 0;padding:24px;width:100%;max-height:60dvh;overflow-y:auto;">
+        <div style="font-family:var(--font-display);font-size:1.1rem;margin-bottom:8px;">Your transfer code</div>
+        <div style="font-size:0.75rem;color:var(--ink-muted);margin-bottom:12px;">Copy this, then open Roam. on your home screen and choose "Import account"</div>
+        <textarea readonly style="width:100%;height:120px;font-size:0.7rem;font-family:monospace;padding:10px;border:1px solid var(--border);border-radius:8px;background:#fff;resize:none;">${code}</textarea>
+        <button class="btn btn-primary btn-full" style="margin-top:12px;" onclick="this.closest('div').parentElement.remove()">Done</button>
+      </div>`;
+    document.body.appendChild(modal);
+  });
+}
+
+function showTransferImport() {
+  document.getElementById('transfer-import-panel').style.display = 'block';
+  document.getElementById('transfer-import-code').focus();
+}
+
+function doImportTransfer() {
+  const code = document.getElementById('transfer-import-code').value.trim();
+  const errEl = document.getElementById('err-transfer');
+  errEl.style.display = 'none';
+  try {
+    const data = JSON.parse(atob(code));
+    if(!data.v || !data.users || !data.session?.username) throw new Error('invalid');
+    const user = data.users[data.session.username];
+    if(!user) throw new Error('no user');
+
+    // Import all users and events
+    const existingUsers = DB.get('users') || {};
+    Object.assign(existingUsers, data.users);
+    DB.set('users', existingUsers);
+
+    // Import events
+    Object.entries(data.events || {}).forEach(([gardenId, events]) => {
+      DB.set('events_' + gardenId, events);
+    });
+
+    // Log in as transferred user
+    DB.set('session', { username: user.username, token: Date.now().toString(36) });
+    setCurrentUser(user);
+    currentUser = user;
+    showToast('Account imported! Welcome back, ' + user.name + ' 🌿');
+    loadApp();
+  } catch(e) {
+    errEl.style.display = 'block';
+  }
+}
 
 // ═══════════════════════════════════════
 // MODAL HELPERS
