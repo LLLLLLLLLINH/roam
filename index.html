@@ -75,28 +75,45 @@ h1,h2,h3 { font-family: var(--font-display); font-weight: 400; }
 #screen-onboard {
   background: var(--cream);
   align-items: center;
-  justify-content: center;
-  padding: max(32px, calc(env(safe-area-inset-top) + 16px)) 24px 32px;
+  justify-content: flex-start;
+  padding: 0;
   text-align: center;
   position: relative;
   overflow: hidden;
 }
 .onboard-bg {
-  position: absolute; inset: 0; pointer-events: none; overflow: hidden;
+  position: absolute; inset: 0; pointer-events: none; width: 100%; height: 100%;
 }
-.onboard-steps { width: 100%; max-width: 400px; }
-.step { display: none; animation: fadeUp 0.4s ease; }
-.step.active { display: block; }
+.onboard-steps {
+  width: 100%;
+  max-width: 420px;
+  margin: 0 auto;
+  padding: max(48px, calc(env(safe-area-inset-top) + 32px)) 24px max(32px, calc(env(safe-area-inset-bottom) + 24px));
+  overflow-y: auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100dvh;
+  box-sizing: border-box;
+  position: relative;
+  z-index: 1;
+}
+.step { display: none; animation: fadeUp 0.4s ease; width: 100%; }
+.step.active { display: flex; flex-direction: column; align-items: center; }
 @keyframes fadeUp { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
 .step-logo { font-family: var(--font-display); font-size: 2.4rem; color: var(--moss); margin-bottom: 8px; }
 .step-logo span { color: var(--terracotta); font-style: italic; }
 .step-tagline { font-size: 1rem; color: var(--ink-muted); margin-bottom: 32px; }
 .step-plant { margin: 0 auto 24px; width: 120px; height: 120px; }
-.step-title { font-family: var(--font-display); font-size: 1.6rem; color: var(--ink); margin-bottom: 12px; line-height: 1.2; }
-.step-body { font-size: 0.9rem; color: var(--ink-light); line-height: 1.6; margin-bottom: 28px; }
+.step-title { font-family: var(--font-display); font-size: 1.6rem; color: var(--ink); margin-bottom: 12px; line-height: 1.2; text-align: center; }
+.step-body { font-size: 0.9rem; color: var(--ink-light); line-height: 1.6; margin-bottom: 28px; text-align: center; }
 .step-dots { display: flex; gap: 6px; justify-content: center; margin-bottom: 24px; }
 .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--border); transition: background 0.2s; }
 .dot.active { background: var(--moss); }
+.step .btn { width: 100%; }
+.step .btn + .btn { margin-top: 10px; }
 
 /* ── BUTTONS ── */
 .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 14px 24px; border-radius: var(--r); font-size: 0.95rem; font-weight: 500; cursor: pointer; transition: all 0.15s; border: 1.5px solid transparent; text-decoration: none; }
@@ -136,8 +153,8 @@ h1,h2,h3 { font-family: var(--font-display); font-weight: 400; }
 .icon-btn:active { background: var(--cream-dark); }
 
 /* ── BOTTOM NAV ── */
-.bottom-nav { background: #fff; border-top: 1px solid var(--border); display: flex; padding: 6px 0; padding-bottom: max(6px, env(safe-area-inset-bottom)); position: sticky; bottom: 0; z-index: 50; }
-.nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 6px 4px; cursor: pointer; color: var(--ink-muted); transition: color 0.15s; border: none; background: none; font-size: 10px; font-weight: 500; letter-spacing: 0.04em; }
+.bottom-nav { background: #fff; border-top: 1px solid var(--border); display: flex; padding: 4px 0 max(4px, env(safe-area-inset-bottom)); position: sticky; bottom: 0; z-index: 50; }
+.nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 4px; cursor: pointer; color: var(--ink-muted); transition: color 0.15s; border: none; background: none; font-size: 10px; font-weight: 500; letter-spacing: 0.04em; }
 .nav-item svg { width: 22px; height: 22px; }
 .nav-item.active { color: var(--moss); }
 .nav-item.active svg { stroke: var(--moss); }
@@ -384,12 +401,12 @@ html { font-size: 14px; }
 /* Landscape phone: make modal scrollable, reduce header */
 @media (max-height: 600px) and (orientation: landscape) {
   .app-header { padding: 8px 16px; padding-top: max(8px, calc(env(safe-area-inset-top) + 4px)); }
-  .bottom-nav { padding: 4px 0; }
-  .nav-item { padding: 4px; gap: 2px; }
+  .bottom-nav { padding: 2px 0 max(2px, env(safe-area-inset-bottom)); }
+  .nav-item { padding: 3px; gap: 1px; }
   .nav-item svg { width: 18px; height: 18px; }
-  .tab-content { padding-bottom: 60px; }
+  .tab-content { padding-bottom: 56px; }
   .modal { max-height: 85dvh; }
-  #screen-onboard { padding: 16px; }
+  #screen-onboard .onboard-steps { min-height: auto; padding-top: max(20px, calc(env(safe-area-inset-top) + 12px)); padding-bottom: max(16px, calc(env(safe-area-inset-bottom) + 8px)); justify-content: flex-start; }
   .step-logo { font-size: 1.6rem; margin-bottom: 4px; }
   .step-dots { margin-bottom: 12px; }
 }
@@ -473,17 +490,13 @@ html { font-size: 14px; }
     <div class="step active" id="ob-step-0">
       <div class="step-logo">Roam<span>.</span></div>
       <div class="step-tagline">your shared event garden</div>
-      <div style="margin: 20px auto 28px;">
-        <svg width="140" height="140" viewBox="0 0 140 140" fill="none">
-          <!-- hand-drawn pot -->
+      <div style="margin: 16px auto 24px; flex-shrink: 0;">
+        <svg width="130" height="130" viewBox="0 0 140 140" fill="none">
           <path d="M50 110 Q55 125 85 125 Q115 125 90 110Z" stroke="#C4714A" stroke-width="2.5" fill="#E8B99A" stroke-linecap="round"/>
           <rect x="45" y="100" width="50" height="14" rx="4" fill="#C4714A" opacity="0.8"/>
-          <!-- stem -->
           <path d="M70 100 Q68 70 70 40" stroke="#4A7C59" stroke-width="2.5" fill="none" stroke-linecap="round"/>
-          <!-- leaves -->
           <path d="M70 75 Q85 65 90 50 Q75 58 70 75Z" fill="#7A9E7E"/>
           <path d="M70 70 Q55 60 50 45 Q65 53 70 70Z" fill="#4A7C59"/>
-          <!-- flower -->
           <circle cx="70" cy="35" r="10" fill="#E8C84A"/>
           <circle cx="70" cy="35" r="6" fill="#C4714A"/>
           <ellipse cx="70" cy="22" rx="5" ry="8" fill="#E8C84A" opacity="0.8"/>
@@ -492,9 +505,9 @@ html { font-size: 14px; }
           <ellipse cx="83" cy="35" rx="8" ry="5" fill="#E8C84A" opacity="0.8"/>
         </svg>
       </div>
-      <p class="step-body" style="margin-bottom: 32px;">Track events together with up to 4 friends — and watch your shared garden grow each time you go out.</p>
+      <p class="step-body">Track events together with up to 4 friends — and watch your shared garden grow each time you go out.</p>
       <button class="btn btn-primary btn-full" onclick="goObStep(1)">Get started →</button>
-      <button class="btn btn-ghost btn-full" style="margin-top: 10px;" onclick="showAuth('login')">I already have an account</button>
+      <button class="btn btn-ghost btn-full" onclick="showAuth('login')">I already have an account</button>
     </div>
 
     <!-- Step 1 -->
@@ -568,11 +581,10 @@ html { font-size: 14px; }
       <div class="auth-sub" id="auth-sub">Start growing your garden</div>
     </div>
 
-    <!-- iOS PWA warning — shown when in standalone mode and no account found -->
+    <!-- iOS PWA notice — shown when in standalone mode -->
     <div id="pwa-notice" style="display:none;background:var(--sage-pale);border:1.5px solid var(--sage-light);border-radius:var(--r);padding:14px 16px;margin-bottom:20px;">
-      <div style="font-size:0.85rem;font-weight:500;color:var(--moss);margin-bottom:6px;">📱 First time in the app?</div>
-      <div style="font-size:0.8rem;color:var(--ink-light);line-height:1.5;margin-bottom:10px;">The home screen app has its own storage, separate from Safari. Create a new account here, or paste a transfer code from your Safari account below.</div>
-      <button class="btn btn-sm btn-secondary btn-full" onclick="showTransferImport()">Import account from Safari →</button>
+      <div style="font-size:0.85rem;font-weight:500;color:var(--moss);margin-bottom:4px;">📱 Using the home screen app?</div>
+      <div style="font-size:0.8rem;color:var(--ink-light);line-height:1.5;">Create a new account here — the app has its own separate storage from Safari.</div>
     </div>
 
     <div id="auth-form-signup">
@@ -608,15 +620,7 @@ html { font-size: 14px; }
       <div class="auth-switch">New here? <a onclick="showAuth('signup')">Create account</a></div>
     </div>
 
-    <!-- Transfer import panel -->
-    <div id="transfer-import-panel" style="display:none;margin-top:20px;">
-      <div style="font-size:0.8rem;font-weight:500;color:var(--ink-light);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.04em;">Paste transfer code</div>
-      <textarea id="transfer-import-code" class="form-input" rows="3" placeholder="Paste your transfer code here..." style="resize:none;font-family:var(--font-mono,monospace);font-size:0.75rem;"></textarea>
-      <button class="btn btn-primary btn-full" style="margin-top:8px;" onclick="doImportTransfer()">Import account</button>
-      <div class="form-error show" id="err-transfer" style="display:none;">Invalid transfer code</div>
-      <button class="btn btn-ghost btn-full" style="margin-top:4px;" onclick="document.getElementById('transfer-import-panel').style.display='none'">Cancel</button>
     </div>
-  </div>
 
   <svg style="position:fixed;bottom:0;left:0;width:180px;pointer-events:none;opacity:0.12;" viewBox="0 0 180 140" fill="none">
     <path d="M10 130 Q40 110 80 120 Q120 130 160 115 L160 140 L10 140Z" fill="#4A7C59"/>
@@ -727,10 +731,6 @@ html { font-size: 14px; }
     <div class="settings-item" onclick="showNotifInfo()">
       <span class="settings-label">Reminders</span>
       <span class="settings-value">Day before</span>
-    </div>
-    <div class="settings-item" onclick="exportTransferCode()">
-      <span class="settings-label">📲 Transfer to home screen app</span>
-      <span class="settings-value">Copy your data code</span>
     </div>
     <div class="settings-item" onclick="showAbout()">
       <span class="settings-label">About Roam.</span>
@@ -2654,73 +2654,6 @@ function loadDemoGarden() {
 
 function showNotifInfo() { showToast('Reminders shown in the bell icon 🔔'); }
 function showAbout() { showToast('Roam. v1.0 — grow your shared garden 🌿'); }
-
-// ── Account transfer (Safari ↔ PWA) ───────────────────────────
-function exportTransferCode() {
-  if(!currentUser) return;
-  const data = {
-    v: 1,
-    users: DB.get('users') || {},
-    events: {},
-    session: { username: currentUser.username }
-  };
-  // Export all events for this garden
-  const gardenId = currentUser.gardenId;
-  data.events[gardenId] = DB.get('events_' + gardenId) || [];
-
-  const code = btoa(JSON.stringify(data));
-  navigator.clipboard.writeText(code).then(() => {
-    showToast('Transfer code copied! Paste it in the home screen app 📋');
-  }).catch(() => {
-    // Show in a modal if clipboard fails
-    const modal = document.createElement('div');
-    modal.style.cssText = 'position:fixed;inset:0;background:rgba(28,28,26,0.6);z-index:600;display:flex;align-items:flex-end;';
-    modal.innerHTML = `
-      <div style="background:var(--cream);border-radius:20px 20px 0 0;padding:24px;width:100%;max-height:60dvh;overflow-y:auto;">
-        <div style="font-family:var(--font-display);font-size:1.1rem;margin-bottom:8px;">Your transfer code</div>
-        <div style="font-size:0.75rem;color:var(--ink-muted);margin-bottom:12px;">Copy this, then open Roam. on your home screen and choose "Import account"</div>
-        <textarea readonly style="width:100%;height:120px;font-size:0.7rem;font-family:monospace;padding:10px;border:1px solid var(--border);border-radius:8px;background:#fff;resize:none;">${code}</textarea>
-        <button class="btn btn-primary btn-full" style="margin-top:12px;" onclick="this.closest('div').parentElement.remove()">Done</button>
-      </div>`;
-    document.body.appendChild(modal);
-  });
-}
-
-function showTransferImport() {
-  document.getElementById('transfer-import-panel').style.display = 'block';
-  document.getElementById('transfer-import-code').focus();
-}
-
-function doImportTransfer() {
-  const code = document.getElementById('transfer-import-code').value.trim();
-  const errEl = document.getElementById('err-transfer');
-  errEl.style.display = 'none';
-  try {
-    const data = JSON.parse(atob(code));
-    if(!data.v || !data.users || !data.session?.username) throw new Error('invalid');
-    const user = data.users[data.session.username];
-    if(!user) throw new Error('no user');
-
-    // Import all users and events
-    const existingUsers = DB.get('users') || {};
-    Object.assign(existingUsers, data.users);
-    DB.set('users', existingUsers);
-
-    // Import events
-    Object.entries(data.events || {}).forEach(([gardenId, events]) => {
-      DB.set('events_' + gardenId, events);
-    });
-
-    // Log in as transferred user
-    DB.set('session', { username: user.username, token: Date.now().toString(36) });
-    setCurrentUser(user);
-    currentUser = user;
-    showToast('Account imported! Welcome back, ' + user.name + ' 🌿');
-    loadApp();
-  } catch(e) {
-    errEl.style.display = 'block';
-  }
-}
 
 // ═══════════════════════════════════════
 // MODAL HELPERS
