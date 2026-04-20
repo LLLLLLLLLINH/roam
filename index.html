@@ -10,7 +10,11 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Roam.">
-<link rel="apple-touch-icon" href="icon.svg">
+<link rel="apple-touch-icon" sizes="180x180" href="icon-180.png">
+<link rel="apple-touch-icon" sizes="167x167" href="icon-167.png">
+<link rel="apple-touch-icon" sizes="152x152" href="icon-152.png">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 <script>
 // Build manifest dynamically from current origin — works on any host
 (function(){
@@ -23,7 +27,10 @@
     display: 'standalone',
     background_color: '#F7F4EE',
     theme_color: '#4A7C59',
-    icons: [{ src: base + 'icon.svg', sizes: 'any', type: 'image/svg+xml' }]
+    icons: [
+      { src: base + 'icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any maskable' },
+      { src: base + 'icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' }
+    ]
   };
   const blob = new Blob([JSON.stringify(manifest)], {type:'application/manifest+json'});
   const url = URL.createObjectURL(blob);
@@ -32,7 +39,7 @@
   document.head.appendChild(link);
 })();
 </script>
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%234A7C59'/%3E%3Ctext x='50' y='72' text-anchor='middle' font-size='58' fill='%23F7F4EE'%3E🌿%3C/text%3E%3C/svg%3E">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,300;0,400;0,500;1,300;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
