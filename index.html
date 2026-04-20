@@ -2750,7 +2750,19 @@ boot();
 if('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     const base = location.pathname.replace(/[^\/]*$/, '');
-    navigator.serviceWorker.register(base + 'sw.js', { scope: base }).catch(() => {});
+    navigator.serviceWorker.register(base + 'sw.js', { scope: base })
+      .then(reg => {
+        // Check for updates every time app is opened
+        reg.addEventListener('updatefound', () => {
+          const newSW = reg.installing;
+          newSW.addEventListener('statechange', () => {
+            if(newSW.state === 'activated' && navigator.serviceWorker.controller) {
+              // New version is ready — reload silently to apply it
+              window.location.reload();
+            }
+          });
+        });
+      }).catch(() => {});
   });
 }
 
