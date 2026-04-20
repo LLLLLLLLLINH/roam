@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Roam.">
-<link rel="manifest" href="data:application/json,%7B%22name%22%3A%22Roam.%22%2C%22short_name%22%3A%22Roam.%22%2C%22start_url%22%3A%22https%3A%2F%2Fllllllllinh.github.io%2Froam%2Findex.html%22%2C%22scope%22%3A%22https%3A%2F%2Fllllllllinh.github.io%2Froam%2F%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%23F7F4EE%22%2C%22theme_color%22%3A%22%234A7C59%22%2C%22icons%22%3A%5B%7B%22src%22%3A%22https%3A%2F%2Fllllllllinh.github.io%2Froam%2Ficon.svg%22%2C%22sizes%22%3A%22any%22%2C%22type%22%3A%22image%2Fsvg%2Bxml%22%7D%5D%7D">
+<link rel="manifest" href="data:application/json,%7B%22name%22%3A%22Roam.%22%2C%22short_name%22%3A%22Roam.%22%2C%22start_url%22%3A%22https%3A%2F%2Fllllllllinh.github.io%2Froam%2F%22%2C%22scope%22%3A%22https%3A%2F%2Fllllllllinh.github.io%2Froam%2F%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%23F7F4EE%22%2C%22theme_color%22%3A%22%234A7C59%22%2C%22icons%22%3A%5B%7B%22src%22%3A%22https%3A%2F%2Fllllllllinh.github.io%2Froam%2Ficon.svg%22%2C%22sizes%22%3A%22any%22%2C%22type%22%3A%22image%2Fsvg%2Bxml%22%7D%5D%7D">
 <link rel="apple-touch-icon" href="https://llllllllinh.github.io/roam/icon.svg">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%234A7C59'/%3E%3Ctext x='50' y='72' text-anchor='middle' font-size='58' fill='%23F7F4EE'%3E🌿%3C/text%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -268,12 +268,9 @@ h1,h2,h3 { font-family: var(--font-display); font-weight: 400; }
 </head>
 <body>
 <script>
-// iOS PWA safety: correct URL if launched incorrectly from home screen
 (function(){
-  const correct = 'https://llllllllinh.github.io/roam/index.html';
-  const here = location.href.split('?')[0].split('#')[0].replace(/\/$/, '');
-  const target = correct.replace(/\/$/, '');
-  if(window.navigator.standalone && here !== target) {
+  const correct = 'https://llllllllinh.github.io/roam/';
+  if(window.navigator.standalone && location.href !== correct) {
     location.replace(correct);
   }
 })();
