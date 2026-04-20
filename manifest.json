@@ -2,8 +2,8 @@
   "name": "Roam. — your shared event garden",
   "short_name": "Roam.",
   "description": "Track events together and watch your shared garden grow. Every outing plants a flower.",
-  "start_url": "/roam/bloom-calendar.html",
-  "scope": "/roam/",
+  "start_url": "https://llllllllinh.github.io/roam/bloom-calendar.html",
+  "scope": "https://llllllllinh.github.io/roam/",
   "display": "standalone",
   "background_color": "#F7F4EE",
   "theme_color": "#4A7C59",
@@ -21,7 +21,7 @@
     {
       "name": "Add event",
       "short_name": "Add",
-      "url": "/roam/bloom-calendar.html",
+      "url": "https://llllllllinh.github.io/roam/bloom-calendar.html",
       "icons": [{ "src": "icon.svg", "sizes": "any" }]
     }
   ]
