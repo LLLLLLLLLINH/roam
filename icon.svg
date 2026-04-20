@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Background -->
+  <rect width="512" height="512" rx="112" fill="#4A7C59"/>
+  <!-- Soil strip -->
+  <rect x="56" y="380" width="400" height="76" rx="20" fill="#c8a96e"/>
+  <!-- Grass -->
+  <rect x="56" y="362" width="400" height="24" rx="8" fill="#7A9E7E"/>
+  <!-- Stem -->
+  <path d="M256 362 Q252 300 256 220" stroke="#2E5C3E" stroke-width="14" fill="none" stroke-linecap="round"/>
+  <!-- Left leaf -->
+  <path d="M256 290 Q300 260 318 224 Q278 248 256 290Z" fill="#7A9E7E"/>
+  <!-- Right leaf -->
+  <path d="M256 278 Q212 248 194 212 Q234 236 256 278Z" fill="#4A7C59"/>
+  <!-- Sunflower petals -->
+  <ellipse cx="256" cy="182" rx="22" ry="36" fill="#E8C84A" opacity="0.9"/>
+  <ellipse cx="256" cy="182" rx="22" ry="36" fill="#E8C84A" opacity="0.9" transform="rotate(45 256 182)"/>
+  <ellipse cx="256" cy="182" rx="22" ry="36" fill="#E8C84A" opacity="0.9" transform="rotate(90 256 182)"/>
+  <ellipse cx="256" cy="182" rx="22" ry="36" fill="#E8C84A" opacity="0.9" transform="rotate(135 256 182)"/>
+  <!-- Flower centre -->
+  <circle cx="256" cy="182" r="40" fill="#C4714A"/>
+  <circle cx="256" cy="182" r="22" fill="#8B3E1A"/>
+  <!-- Dot pattern on centre -->
+  <circle cx="244" cy="170" r="4" fill="#C4714A" opacity="0.6"/>
+  <circle cx="268" cy="170" r="4" fill="#C4714A" opacity="0.6"/>
+  <circle cx="256" cy="188" r="4" fill="#C4714A" opacity="0.6"/>
+  <!-- "R." text mark at bottom -->
+  <text x="256" y="446" text-anchor="middle" font-family="Georgia, serif" font-size="52" font-weight="bold" fill="#F7F4EE" opacity="0.9">Roam.</text>
+</svg>
