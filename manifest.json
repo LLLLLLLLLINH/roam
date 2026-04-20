@@ -2,7 +2,8 @@
   "name": "Roam. — your shared event garden",
   "short_name": "Roam.",
   "description": "Track events together and watch your shared garden grow. Every outing plants a flower.",
-  "start_url": "./bloom-calendar.html",
+  "start_url": "/roam/bloom-calendar.html",
+  "scope": "/roam/",
   "display": "standalone",
   "background_color": "#F7F4EE",
   "theme_color": "#4A7C59",
@@ -10,33 +11,18 @@
   "categories": ["lifestyle", "social", "productivity"],
   "icons": [
     {
-      "src": "icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
       "purpose": "any maskable"
     }
   ],
-  "screenshots": [],
   "shortcuts": [
     {
       "name": "Add event",
       "short_name": "Add",
-      "description": "Quickly add a new event",
-      "url": "./bloom-calendar.html#add",
-      "icons": [{ "src": "icon-192.png", "sizes": "192x192" }]
-    },
-    {
-      "name": "My garden",
-      "short_name": "Garden",
-      "description": "See your garden",
-      "url": "./bloom-calendar.html#garden",
-      "icons": [{ "src": "icon-192.png", "sizes": "192x192" }]
+      "url": "/roam/bloom-calendar.html",
+      "icons": [{ "src": "icon.svg", "sizes": "any" }]
     }
   ]
 }
