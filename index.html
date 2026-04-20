@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content">
 <title>Roam. — your shared event garden</title>
 <meta name="description" content="Track events together and watch your shared garden grow. Every outing plants a flower.">
 <meta name="theme-color" content="#4A7C59">
@@ -62,7 +62,9 @@
 }
 * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 html, body { height: 100%; background: var(--cream); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.5; overflow-x: hidden; }
-input, textarea, select, button { font-family: var(--font-body); font-size: 15px; }
+input, textarea, select, button { font-family: var(--font-body); font-size: max(16px, 1rem); }
+@media (min-width: 390px) { input, textarea, select, button { font-size: 15px; } }
+@media (min-width: 430px) { input, textarea, select, button { font-size: 16px; } }
 h1,h2,h3 { font-family: var(--font-display); font-weight: 400; }
 
 /* ── SCREENS ── */
@@ -134,7 +136,7 @@ h1,h2,h3 { font-family: var(--font-display); font-weight: 400; }
 .icon-btn:active { background: var(--cream-dark); }
 
 /* ── BOTTOM NAV ── */
-.bottom-nav { background: #fff; border-top: 1px solid var(--border); display: flex; padding: 8px 0 max(8px, env(safe-area-inset-bottom)); position: sticky; bottom: 0; z-index: 50; }
+.bottom-nav { background: #fff; border-top: 1px solid var(--border); display: flex; padding: 6px 0; padding-bottom: max(6px, env(safe-area-inset-bottom)); position: sticky; bottom: 0; z-index: 50; }
 .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 6px 4px; cursor: pointer; color: var(--ink-muted); transition: color 0.15s; border: none; background: none; font-size: 10px; font-weight: 500; letter-spacing: 0.04em; }
 .nav-item svg { width: 22px; height: 22px; }
 .nav-item.active { color: var(--moss); }
@@ -277,9 +279,119 @@ h1,h2,h3 { font-family: var(--font-display); font-weight: 400; }
 .hand-circle { filter: none; }
 
 /* ── RESPONSIVE TWEAKS ── */
-@media (min-width: 480px) {
-  .modal { max-width: 480px; margin: 0 auto; border-radius: 20px; }
+/* ── MOBILE FIRST RESPONSIVE ──────────────────────────────────
+   Base = mobile (320px+)
+   sm   = small phones (375px+)   iPhone SE, older Androids
+   md   = regular phones (390px+) iPhone 14/15, Pixel
+   lg   = large phones (430px+)   iPhone Pro Max, Samsung Ultra
+   xl   = tablet/desktop (600px+)
+─────────────────────────────────────────────────────────────── */
+
+/* Base: very small phones 320px */
+html { font-size: 14px; }
+.tab-content { padding: 14px 14px 80px; }
+.app-header { padding: 12px 14px; }
+.week-title { font-size: 1.3rem; }
+.modal { padding: 0 14px 28px; }
+.modal-title { font-size: 1.2rem; }
+.cat-grid { grid-template-columns: repeat(3,1fr); gap: 6px; }
+.cat-item { padding: 8px 4px; font-size: 0.75rem; }
+.cat-emoji { font-size: 1rem; }
+.garden-canvas { min-height: 180px; }
+.stat-num { font-size: 1.5rem; }
+.garden-stats { gap: 8px; }
+.step-logo { font-size: 2rem; }
+.step-title { font-size: 1.4rem; }
+.auth-title { font-size: 1.7rem; }
+.profile-avatar { width: 52px; height: 52px; font-size: 1.5rem; }
+.nav-item { font-size: 9px; }
+.nav-item svg { width: 20px; height: 20px; }
+.event-card { padding: 12px 14px; }
+.form-input { padding: 11px 14px; }
+.btn { padding: 12px 20px; font-size: 0.9rem; }
+
+/* sm: 375px+ — iPhone SE, most Androids */
+@media (min-width: 375px) {
+  html { font-size: 15px; }
+  .tab-content { padding: 16px 16px 80px; }
+  .app-header { padding: 13px 16px; }
+  .week-title { font-size: 1.4rem; }
+  .modal { padding: 0 16px 28px; }
+  .modal-title { font-size: 1.3rem; }
+  .cat-item { padding: 10px 6px; font-size: 0.78rem; }
+  .cat-emoji { font-size: 1.1rem; }
+  .garden-canvas { min-height: 200px; }
+  .stat-num { font-size: 1.6rem; }
+  .step-logo { font-size: 2.2rem; }
+  .step-title { font-size: 1.5rem; }
+  .auth-title { font-size: 1.8rem; }
+  .nav-item { font-size: 9.5px; }
+  .form-input { padding: 12px 14px; }
+  .btn { padding: 13px 22px; }
+}
+
+/* md: 390px+ — iPhone 14/15, Pixel 7/8 */
+@media (min-width: 390px) {
+  html { font-size: 15px; }
+  .tab-content { padding: 18px 18px 82px; }
+  .app-header { padding: 14px 18px; }
+  .week-title { font-size: 1.5rem; }
+  .modal { padding: 0 18px 30px; }
+  .cat-item { padding: 10px 8px; font-size: 0.8rem; }
+  .cat-emoji { font-size: 1.2rem; }
+  .garden-canvas { min-height: 220px; }
+  .stat-num { font-size: 1.8rem; }
+  .step-logo { font-size: 2.4rem; }
+  .step-title { font-size: 1.6rem; }
+  .auth-title { font-size: 2rem; }
+  .profile-avatar { width: 56px; height: 56px; font-size: 1.6rem; }
+  .nav-item { font-size: 10px; }
+  .nav-item svg { width: 22px; height: 22px; }
+  .form-input { padding: 13px 16px; }
+  .btn { padding: 14px 24px; font-size: 0.95rem; }
+}
+
+/* lg: 430px+ — iPhone 15 Pro Max, Samsung S24 Ultra */
+@media (min-width: 430px) {
+  html { font-size: 16px; }
+  .tab-content { padding: 20px 20px 86px; }
+  .app-header { padding: 14px 20px; }
+  .week-title { font-size: 1.6rem; }
+  .modal { padding: 0 20px 32px; }
+  .modal-title { font-size: 1.4rem; }
+  .cat-grid { gap: 8px; }
+  .cat-item { padding: 12px 8px; font-size: 0.82rem; }
+  .garden-canvas { min-height: 240px; }
+  .stat-num { font-size: 2rem; }
+  .garden-stats { gap: 10px; }
+  .nav-item { font-size: 10.5px; }
+  .form-input { padding: 14px 16px; font-size: 16px; } /* 16px prevents iOS zoom */
+}
+
+/* xl: 600px+ — tablets, landscape phones, desktop */
+@media (min-width: 600px) {
+  #screen-app { max-width: 540px; margin: 0 auto; }
+  #screen-auth { max-width: 480px; margin: 0 auto; }
+  #screen-onboard { max-width: 480px; margin: 0 auto; }
+  .modal { max-width: 500px; margin: 0 auto; border-radius: 20px; }
   .modal-backdrop { align-items: center; }
+  .bottom-nav { max-width: 540px; margin: 0 auto; left: 50%; transform: translateX(-50%); width: 100%; position: fixed; }
+  .app-header { max-width: 540px; margin: 0 auto; }
+  .tab-content { padding: 24px 24px 100px; }
+  html { font-size: 16px; }
+}
+
+/* Landscape phone: make modal scrollable, reduce header */
+@media (max-height: 600px) and (orientation: landscape) {
+  .app-header { padding: 8px 16px; }
+  .bottom-nav { padding: 4px 0; }
+  .nav-item { padding: 4px; gap: 2px; }
+  .nav-item svg { width: 18px; height: 18px; }
+  .tab-content { padding-bottom: 60px; }
+  .modal { max-height: 85dvh; }
+  #screen-onboard { padding: 16px; }
+  .step-logo { font-size: 1.6rem; margin-bottom: 4px; }
+  .step-dots { margin-bottom: 12px; }
 }
 
 /* ── DECORATIVE SVGs ── */
@@ -820,6 +932,13 @@ function showAuth(mode) {
 // ═══════════════════════════════════════
 // AUTH
 // ═══════════════════════════════════════
+// ── Simple hash for password storage (not cryptographic, just obfuscation) ──
+function hashPass(str) {
+  let h = 0x811c9dc5;
+  for(let i=0;i<str.length;i++) { h ^= str.charCodeAt(i); h = (h * 0x01000193) >>> 0; }
+  return h.toString(36);
+}
+
 function doSignup() {
   const name = document.getElementById('reg-name').value.trim();
   const username = document.getElementById('reg-username').value.trim().toLowerCase();
@@ -831,7 +950,6 @@ function doSignup() {
   if(password.length < 6) { errP.classList.add('show'); return; }
   const users = getUsers();
   if(users[username]) { errU.classList.add('show'); return; }
-  // Create garden for this user or join via invite
   const params = new URLSearchParams(window.location.search);
   const inviteGarden = params.get('garden');
   let gardenId;
@@ -840,9 +958,12 @@ function doSignup() {
   } else {
     gardenId = 'g_' + Math.random().toString(36).substr(2,9);
   }
-  const user = { name, username, password, gardenId, joinedAt: Date.now(), color: randomColor() };
+  const user = { name, username, password: hashPass(password), gardenId, joinedAt: Date.now(), color: randomColor() };
   users[username] = user;
   saveUsers(users);
+  // Store session — save full user + a session token
+  const session = { username, token: Date.now().toString(36) };
+  DB.set('session', session);
   setCurrentUser(user);
   currentUser = user;
   showToast('Welcome to Roam., '+name+' 🌱');
@@ -854,18 +975,30 @@ function doLogin() {
   const password = document.getElementById('login-password').value;
   const users = getUsers();
   const user = users[username];
-  if(!user || user.password !== password) {
+  // Support both hashed and legacy plain-text passwords
+  const matches = user && (user.password === hashPass(password) || user.password === password);
+  if(!matches) {
     document.getElementById('err-login').classList.add('show');
     return;
   }
+  // Migrate to hashed password if still plain text
+  if(user.password === password) {
+    user.password = hashPass(password);
+    users[username] = user;
+    saveUsers(users);
+  }
+  DB.set('session', { username, token: Date.now().toString(36) });
   setCurrentUser(user);
   currentUser = user;
   loadApp();
 }
 
 function doLogout() {
+  if(liveUpdateTimer) clearInterval(liveUpdateTimer);
   DB.del('currentUser');
+  DB.del('session');
   currentUser = null;
+  lastEventHash = '';
   showScreen('onboard');
   goObStep(0);
 }
@@ -885,11 +1018,57 @@ function loadApp() {
   renderGarden();
   renderPeople();
   renderProfile();
+  startLiveUpdates();
   // Handle invite param
   const params = new URLSearchParams(window.location.search);
   if(params.get('garden')) {
     window.history.replaceState({}, '', window.location.pathname);
   }
+}
+
+// ── Live updates ──────────────────────────────────────────────
+let liveUpdateTimer = null;
+let lastEventHash = '';
+
+function startLiveUpdates() {
+  // Poll every 2 seconds for changes (catches same-device updates)
+  if(liveUpdateTimer) clearInterval(liveUpdateTimer);
+  liveUpdateTimer = setInterval(checkForUpdates, 2000);
+
+  // Also listen for storage events (catches cross-tab updates)
+  window.addEventListener('storage', e => {
+    if(e.key && e.key.includes('bloom_events')) {
+      refreshCurrentTab();
+    }
+  });
+
+  // Re-render when app comes back into focus (lock screen, tab switch)
+  document.addEventListener('visibilitychange', () => {
+    if(!document.hidden) refreshCurrentTab();
+  });
+  window.addEventListener('focus', refreshCurrentTab);
+  window.addEventListener('pageshow', refreshCurrentTab);
+}
+
+function checkForUpdates() {
+  if(!currentUser) return;
+  const events = getEvents(currentUser.gardenId);
+  const hash = JSON.stringify(events.map(e => e.id + e.completed + (e.completedAt||'')));
+  if(hash !== lastEventHash) {
+    lastEventHash = hash;
+    refreshCurrentTab();
+  }
+}
+
+function refreshCurrentTab() {
+  if(!currentUser) return;
+  const activeTab = document.querySelector('.tab-content.active');
+  if(!activeTab) return;
+  const tabId = activeTab.id;
+  if(tabId === 'tab-week')     renderWeek();
+  if(tabId === 'tab-calendar') renderCalendar();
+  if(tabId === 'tab-garden')   renderGarden();
+  if(tabId === 'tab-profile')  { renderPeople(); renderProfile(); }
 }
 
 // ═══════════════════════════════════════
@@ -2494,24 +2673,41 @@ function esc(s) { if(!s) return ''; return String(s).replace(/&/g,'&amp;').repla
 // BOOT
 // ═══════════════════════════════════════
 function boot() {
-  // Check for invite param first
   const params = new URLSearchParams(window.location.search);
   const inviteGarden = params.get('garden');
 
-  const saved = getCurrentUser();
-  if(saved) {
-    // Re-hydrate user from users store (in case updated)
-    const users = getUsers();
-    currentUser = users[saved.username] || saved;
-    // If there's an invite and user is already logged in, offer to join
+  // Try session first (most reliable), then fall back to currentUser
+  const session = DB.get('session');
+  const savedUser = getCurrentUser();
+  const users = getUsers();
+
+  let user = null;
+  if(session && session.username && users[session.username]) {
+    user = users[session.username];
+  } else if(savedUser && savedUser.username && users[savedUser.username]) {
+    user = users[savedUser.username];
+  } else if(savedUser) {
+    // Legacy: currentUser not in users store — re-add them
+    user = savedUser;
+    if(user.username) {
+      users[user.username] = user;
+      saveUsers(users);
+    }
+  }
+
+  if(user) {
+    currentUser = user;
+    // Keep both stores in sync
+    setCurrentUser(user);
+    DB.set('session', { username: user.username, token: DB.get('session')?.token || Date.now().toString(36) });
+
     if(inviteGarden && inviteGarden !== currentUser.gardenId) {
-      const users2 = getUsers();
-      const gardenMembers = Object.values(users2).filter(u => u.gardenId === inviteGarden);
+      const gardenMembers = Object.values(users).filter(u => u.gardenId === inviteGarden);
       if(gardenMembers.length < 4 && gardenMembers.length > 0) {
         if(confirm(`${gardenMembers[0].name} has invited you to their Roam. garden. Join?`)) {
           currentUser.gardenId = inviteGarden;
-          users2[currentUser.username] = currentUser;
-          saveUsers(users2);
+          users[currentUser.username] = currentUser;
+          saveUsers(users);
           setCurrentUser(currentUser);
         }
       }
@@ -2519,7 +2715,6 @@ function boot() {
     }
     loadApp();
   } else if(inviteGarden) {
-    // Show signup with garden param preserved
     showAuth('signup');
   } else {
     showScreen('onboard');
