@@ -1026,11 +1026,12 @@ function doSignup() {
     gardenId = inviteGarden;
     isPending = true;
   } else if(inviteCode) {
-    // Joining via 6-digit code
-    const codeMap = DB.get('garden_codes') || {};
-    const foundGarden = Object.entries(codeMap).find(([gid, code]) => code === inviteCode);
-    if(foundGarden) {
-      gardenId = foundGarden[0];
+    // Find the garden whose deterministic code matches
+    const users = getUsers();
+    const allGardenIds = [...new Set(Object.values(users).map(u => u.gardenId).filter(Boolean))];
+    const matchedGarden = allGardenIds.find(gid => gardenCodeFromId(gid) === inviteCode);
+    if(matchedGarden) {
+      gardenId = matchedGarden;
       isPending = true;
     } else {
       showToast('Invalid join code — check with your friend');
@@ -1053,14 +1054,11 @@ function doSignup() {
   currentUser = user;
   window.history.replaceState({}, '', window.location.pathname);
   if(isPending) {
-    showToast('Account created! Your join request has been sent 🌿');
-    loadApp();
-    // After load, show the approval URL they need to send to the owner
-    setTimeout(() => showApprovalUrlModal(user), 800);
+    showToast('Account created! Waiting for the owner to approve you 🌿');
   } else {
     showToast('Welcome to Roam., '+name+' 🌱');
-    loadApp();
   }
+  loadApp();
 }
 
 function doLogin() {
@@ -1084,9 +1082,6 @@ function doLogin() {
   setCurrentUser(user);
   currentUser = user;
   loadApp();
-  // Process any pending join request that was stored before login
-  const pendingReq = DB.get('pending_joinreq');
-  if(pendingReq) { DB.del('pending_joinreq'); setTimeout(() => handleJoinRequest(pendingReq), 500); }
 }
 
 function doLogout() {
@@ -2488,6 +2483,22 @@ function renderCalendar() {
     cell.onclick = () => showCalDay(ds);
     grid.appendChild(cell);
   }
+
+  // Auto-refresh the detail panel if a day is already selected
+  if(selectedCalDay) {
+    const evDiv = document.getElementById('cal-detail-events');
+    const detail = document.getElementById('cal-detail');
+    if(detail && detail.style.display !== 'none') {
+      const dayEvents = events.filter(e => e.date === selectedCalDay);
+      evDiv.innerHTML = '';
+      if(dayEvents.length === 0) {
+        evDiv.innerHTML = '<div class="empty-day">No events this day</div>';
+      } else {
+        dayEvents.sort((a,b)=>(a.time||'23:59').localeCompare(b.time||'23:59'))
+                 .forEach(ev => evDiv.appendChild(buildEventCard(ev)));
+      }
+    }
+  }
 }
 
 function showCalDay(dateStr) {
@@ -2871,9 +2882,8 @@ function renderPeople() {
     const notice = document.createElement('div');
     notice.style.cssText = 'background:var(--sage-pale);border:1px solid var(--sage-light);border-radius:var(--r);padding:14px 16px;margin-top:12px;text-align:center;';
     notice.innerHTML = `
-      <div style="font-size:0.85rem;color:var(--moss);font-weight:500;margin-bottom:6px;">⏳ Waiting for approval</div>
-      <div style="font-size:0.78rem;color:var(--ink-light);line-height:1.4;margin-bottom:12px;">Send the approval link to the garden owner so they can let you in.</div>
-      <button onclick="showApprovalUrlModal(currentUser)" style="background:var(--moss);color:#fff;border:none;border-radius:var(--r-sm);padding:8px 16px;font-size:0.8rem;font-weight:500;cursor:pointer;width:100%;">📋 Get approval link to send owner</button>
+      <div style="font-size:0.85rem;color:var(--moss);font-weight:500;margin-bottom:4px;">⏳ Waiting for approval</div>
+      <div style="font-size:0.78rem;color:var(--ink-light);line-height:1.4;">The garden owner will see your request in their Profile tab and can approve or deny it.</div>
     `;
     list.appendChild(notice);
   }
@@ -2885,14 +2895,10 @@ function renderPeople() {
   }
   if(inviteBox) inviteBox.style.display = '';
 
-  // Join code
-  const codeMap = DB.get('garden_codes') || {};
-  if(!codeMap[gardenId]) {
-    codeMap[gardenId] = Math.random().toString(36).substr(2,6).toUpperCase();
-    DB.set('garden_codes', codeMap);
-  }
+  // Join code — deterministic from gardenId, same on every device
+  const joinCode = gardenCodeFromId(gardenId);
   const joinCodeEl = document.getElementById('join-code-display');
-  if(joinCodeEl) joinCodeEl.textContent = codeMap[gardenId];
+  if(joinCodeEl) joinCodeEl.textContent = joinCode;
 
   // Invite URL — safe for all hosting environments
   const base = (location.origin && location.origin !== 'null' && !location.origin.includes('srcdoc'))
@@ -2909,6 +2915,13 @@ function renderPeople() {
       new QRCode(qrEl, { text: inviteUrl, width: 130, height: 130, colorDark: '#2E5C3E', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M });
     }
   }
+}
+
+// ── Garden code: deterministic from gardenId, no cross-device lookup needed ──
+function gardenCodeFromId(gardenId) {
+  let h = 0x811c9dc5;
+  for(let i = 0; i < gardenId.length; i++) { h ^= gardenId.charCodeAt(i); h = (h * 0x01000193) >>> 0; }
+  return h.toString(36).toUpperCase().padStart(6,'0').slice(-6);
 }
 
 function approveMember(username) {
@@ -2931,77 +2944,7 @@ function denyMember(username) {
   }
 }
 
-// ── Cross-context approval via URL ────────────────────────────
-// When User B joins, generate an approval URL they send to the owner.
-// Owner opens it → request written to owner's localStorage → approve in UI.
-function generateApprovalUrl(user) {
-  const base = (location.origin && location.origin !== 'null' && !location.origin.includes('srcdoc'))
-    ? location.origin + location.pathname
-    : location.href.split('?')[0];
-  const payload = btoa(JSON.stringify({
-    action: 'join_request',
-    username: user.username,
-    name: user.name,
-    color: user.color,
-    gardenId: user.gardenId,
-    joinedAt: user.joinedAt,
-    passwordHash: user.password
-  }));
-  return base + '?joinreq=' + encodeURIComponent(payload);
-}
 
-function handleJoinRequest(payload) {
-  try {
-    const data = JSON.parse(atob(payload));
-    if(data.action !== 'join_request') return;
-    // Write the pending user into THIS context's localStorage
-    const users = getUsers();
-    if(!users[data.username]) {
-      users[data.username] = {
-        username: data.username,
-        name: data.name,
-        color: data.color,
-        gardenId: data.gardenId,
-        joinedAt: data.joinedAt,
-        password: data.passwordHash,
-        pending: true,
-        isOwner: false
-      };
-      saveUsers(users);
-    }
-    window.history.replaceState({}, '', window.location.pathname);
-    showToast(`${data.name} wants to join your garden — check Profile 🌿`);
-    // Switch to profile tab if app is loaded
-    if(currentUser && currentUser.gardenId === data.gardenId) {
-      switchTab('profile', document.querySelector('[data-tab="profile"]'));
-    }
-  } catch(e) {}
-}
-
-function joinByCode() {
-  const code = (document.getElementById('profile-join-code')?.value || '').trim().toUpperCase();
-  if(!code || code.length < 4) { showToast('Enter a valid join code'); return; }
-
-  const codeMap = DB.get('garden_codes') || {};
-  const found = Object.entries(codeMap).find(([gid, c]) => c === code);
-  if(!found) { showToast('Code not found — check with your friend'); return; }
-
-  const newGardenId = found[0];
-  if(newGardenId === currentUser.gardenId) { showToast('You\'re already in this garden!'); return; }
-
-  // Mark as pending for the new garden
-  const users = getUsers();
-  currentUser.gardenId = newGardenId;
-  currentUser.pending = true;
-  currentUser.isOwner = false;
-  users[currentUser.username] = currentUser;
-  saveUsers(users);
-  setCurrentUser(currentUser);
-  document.getElementById('profile-join-code').value = '';
-  showToast('Join request sent! Waiting for the owner to approve 🌿');
-  renderPeople();
-  renderWeek();
-}
 
 function copyInviteLink() {
   const url = document.getElementById('invite-link-text').textContent;
@@ -3110,18 +3053,7 @@ function loadDemoGarden() {
   renderGarden();
 }
 
-function showApprovalUrlModal(user) {
-  const approvalUrl = generateApprovalUrl(user);
-  const modal = document.createElement('div');
-  modal.style.cssText = 'position:fixed;inset:0;background:rgba(28,28,26,0.6);z-index:600;display:flex;align-items:flex-end;';
-  modal.innerHTML = `
-    <div style="background:var(--cream);border-radius:20px 20px 0 0;padding:24px 20px 40px;width:100%;max-height:80dvh;overflow-y:auto;">
-      <div style="width:36px;height:4px;background:var(--border);border-radius:4px;margin:0 auto 20px;"></div>
-      <div style="font-family:var(--font-display);font-size:1.2rem;color:var(--moss);margin-bottom:8px;">One more step! 🌿</div>
-      <div style="font-size:0.85rem;color:var(--ink-light);line-height:1.5;margin-bottom:16px;">
-        Send this approval link to the garden owner. They open it to approve your request — then you're in!
-      </div>
-      <div style="background:#fff;border:1px solid var(--border);border-radius:var(--r-sm);padding:10px 12px;font-size:0.72rem;font-family:monospace;word-break:break-all;color:var(--ink-light);margin-bottom:12px;max-height:80px;overflow-y:auto;">${approvalUrl}</div>
+</div>
       <button onclick="navigator.clipboard.writeText('${approvalUrl.replace(/'/g,"\\'")}').then(()=>showToast('Approval link copied!')).catch(()=>{})" class="btn btn-primary btn-full" style="margin-bottom:8px;">📋 Copy approval link</button>
       ${navigator.share ? `<button onclick="navigator.share({title:'Roam. join request',text:'Open this to approve my join request',url:'${approvalUrl.replace(/'/g,"\\'")}'})" class="btn btn-secondary btn-full" style="margin-bottom:8px;">Share approval link</button>` : ''}
       <button onclick="this.closest('div').parentElement.remove()" class="btn btn-ghost btn-full">Done</button>
@@ -3129,11 +3061,33 @@ function showApprovalUrlModal(user) {
   document.body.appendChild(modal);
 }
 
+function joinByCode() {
+  const code = (document.getElementById('profile-join-code')?.value || '').trim().toUpperCase();
+  if(!code || code.length < 4) { showToast('Enter a valid join code'); return; }
+
+  // Find garden whose deterministic code matches
+  const users = getUsers();
+  const allGardenIds = [...new Set(Object.values(users).map(u => u.gardenId).filter(Boolean))];
+  const matchedGarden = allGardenIds.find(gid => gardenCodeFromId(gid) === code);
+
+  if(!matchedGarden) { showToast('Code not found — double-check with your friend'); return; }
+  if(matchedGarden === currentUser.gardenId) { showToast('You\'re already in this garden!'); return; }
+
+  const updatedUsers = getUsers();
+  currentUser.gardenId = matchedGarden;
+  currentUser.pending = true;
+  currentUser.isOwner = false;
+  updatedUsers[currentUser.username] = currentUser;
+  saveUsers(updatedUsers);
+  setCurrentUser(currentUser);
+  document.getElementById('profile-join-code').value = '';
+  showToast('Join request sent! The owner will see it in their Profile tab 🌿');
+  renderPeople();
+  renderWeek();
+}
+
 function showNotifInfo() { showToast('Reminders shown in the bell icon 🔔'); }
 function showAbout() { showToast('Roam. v1.0 — grow your shared garden 🌿'); }
-
-// ═══════════════════════════════════════
-// MODAL HELPERS
 // ═══════════════════════════════════════
 function openModal(id) {
   const el = document.getElementById(id);
@@ -3177,30 +3131,6 @@ function boot() {
   const inviteGarden = params.get('garden');
   const inviteCode = params.get('code');
   const joinReq = params.get('joinreq');
-
-  // Handle cross-context join request (owner opens approval URL)
-  if(joinReq) {
-    const session = DB.get('session');
-    const savedUser = getCurrentUser();
-    const users = getUsers();
-    let user = null;
-    if(session?.username && users[session.username]) user = users[session.username];
-    else if(savedUser?.username && users[savedUser.username]) user = users[savedUser.username];
-
-    if(user) {
-      currentUser = user;
-      setCurrentUser(user);
-      loadApp();
-      // Process join request after app loads
-      setTimeout(() => handleJoinRequest(joinReq), 500);
-    } else {
-      // Not logged in — store the request and show login
-      DB.set('pending_joinreq', joinReq);
-      showAuth('login');
-    }
-    window.history.replaceState({}, '', window.location.pathname);
-    return;
-  }
 
   const session = DB.get('session');
   const savedUser = getCurrentUser();
