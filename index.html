@@ -1201,7 +1201,7 @@ function shiftWeek(dir) {
 function renderWeek() {
   // Show pending notice if user hasn't been approved yet
   if(currentUser.pending) {
-    const container = document.getElementById('week-container');
+    const container = document.getElementById('week-events-container');
     if(container) container.innerHTML = `
       <div style="text-align:center;padding:40px 20px;">
         <div style="font-size:2.5rem;margin-bottom:16px;">⏳</div>
@@ -2797,24 +2797,37 @@ function setGardenPeriod(p, el) {
 function renderPeople() {
   const users = getUsers();
   const gardenId = currentUser.gardenId;
-  const members = Object.values(users).filter(u => u.gardenId === gardenId && !u.pending);
-  const pending = Object.values(users).filter(u => u.gardenId === gardenId && u.pending);
+
+  // Ensure current user is always in users store
+  if(!users[currentUser.username]) {
+    users[currentUser.username] = currentUser;
+    saveUsers(users);
+  }
+
+  const allInGarden = Object.values(users).filter(u => u.gardenId === gardenId);
+  const members = allInGarden.filter(u => !u.pending);
+  const pending = allInGarden.filter(u => u.pending);
   const events = getEvents(gardenId);
-  const isOwner = currentUser.username === (Object.values(users).find(u => u.gardenId === gardenId && u.isOwner)||{}).username
-    || members.sort((a,b)=>a.joinedAt-b.joinedAt)[0]?.username === currentUser.username;
+
+  // Owner = isOwner flag or earliest joiner
+  const sorted = [...members].sort((a,b) => a.joinedAt - b.joinedAt);
+  const ownerUsername = (allInGarden.find(u => u.isOwner) || sorted[0] || currentUser).username;
+  const isOwner = currentUser.username === ownerUsername;
 
   const list = document.getElementById('members-list');
+  if(!list) return;
   list.innerHTML = '';
 
   // Approved members
-  members.sort((a,b)=>a.joinedAt-b.joinedAt).forEach(m => {
+  sorted.forEach(m => {
     const attended = events.filter(e => e.completed && e.addedBy === m.username).length;
+    const col = m.color || '#7A9E7E';
     const div = document.createElement('div');
     div.className = 'garden-member';
     div.innerHTML = `
-      <div class="member-avatar" style="background:${m.color+'22'};border-color:${m.color}40;color:${m.color};">${m.name[0].toUpperCase()}</div>
+      <div class="member-avatar" style="background:${col}22;border-color:${col}40;color:${col};">${m.name[0].toUpperCase()}</div>
       <div class="member-info">
-        <div class="member-name">${esc(m.name)}</div>
+        <div class="member-name">${esc(m.name)}${m.username===ownerUsername?'<span style="font-size:0.7rem;background:var(--sage-pale);color:var(--moss);padding:1px 6px;border-radius:10px;margin-left:6px;font-weight:500;">Owner</span>':''}</div>
         <div class="member-stats">@${esc(m.username)} · ${attended} attended</div>
       </div>
       ${m.username===currentUser.username?'<span class="member-badge">You</span>':''}
@@ -2828,7 +2841,6 @@ function renderPeople() {
     hdr.style.cssText = 'font-size:0.75rem;font-weight:500;text-transform:uppercase;letter-spacing:0.06em;color:var(--terracotta);margin:16px 0 8px;';
     hdr.textContent = `${pending.length} join request${pending.length>1?'s':''}`;
     list.appendChild(hdr);
-
     pending.forEach(m => {
       const div = document.createElement('div');
       div.className = 'garden-member';
@@ -2848,7 +2860,7 @@ function renderPeople() {
     });
   }
 
-  // Show pending notice to the requester themselves
+  // Pending notice for the requester
   if(currentUser.pending) {
     const notice = document.createElement('div');
     notice.style.cssText = 'background:var(--sage-pale);border:1px solid var(--sage-light);border-radius:var(--r);padding:14px 16px;margin-top:12px;font-size:0.85rem;color:var(--moss);text-align:center;';
@@ -2856,28 +2868,36 @@ function renderPeople() {
     list.appendChild(notice);
   }
 
+  const inviteBox = document.getElementById('invite-box');
   if(members.length >= 4) {
-    document.getElementById('invite-box').style.display = 'none';
+    if(inviteBox) inviteBox.style.display = 'none';
     return;
   }
+  if(inviteBox) inviteBox.style.display = '';
 
-  // Ensure this garden has a join code
+  // Join code
   const codeMap = DB.get('garden_codes') || {};
   if(!codeMap[gardenId]) {
     codeMap[gardenId] = Math.random().toString(36).substr(2,6).toUpperCase();
     DB.set('garden_codes', codeMap);
   }
-  const joinCode = codeMap[gardenId];
-  document.getElementById('join-code-display').textContent = joinCode;
+  const joinCodeEl = document.getElementById('join-code-display');
+  if(joinCodeEl) joinCodeEl.textContent = codeMap[gardenId];
 
-  // Invite link + QR
-  const inviteUrl = window.location.origin + window.location.pathname + '?garden=' + gardenId;
-  document.getElementById('invite-link-text').textContent = inviteUrl;
+  // Invite URL — safe for all hosting environments
+  const base = (location.origin && location.origin !== 'null' && !location.origin.includes('srcdoc'))
+    ? location.origin + location.pathname
+    : location.href.split('?')[0];
+  const inviteUrl = base + '?garden=' + gardenId;
+  const linkEl = document.getElementById('invite-link-text');
+  if(linkEl) linkEl.textContent = inviteUrl;
 
   const qrEl = document.getElementById('qr-container');
-  qrEl.innerHTML = '';
-  if(typeof QRCode !== 'undefined') {
-    new QRCode(qrEl, { text: inviteUrl, width: 130, height: 130, colorDark: '#2E5C3E', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M });
+  if(qrEl) {
+    qrEl.innerHTML = '';
+    if(typeof QRCode !== 'undefined') {
+      new QRCode(qrEl, { text: inviteUrl, width: 130, height: 130, colorDark: '#2E5C3E', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M });
+    }
   }
 }
 
