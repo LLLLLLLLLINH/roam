@@ -159,14 +159,14 @@ h1,h2,h3 { font-family: var(--font-display); font-weight: 400; }
 .icon-btn:active { background: var(--cream-dark); }
 
 /* ── BOTTOM NAV ── */
-.bottom-nav { background: #fff; border-top: 1px solid var(--border); display: flex; padding: 4px 0 0; padding-bottom: max(16px, env(safe-area-inset-bottom)); position: sticky; bottom: 0; z-index: 50; }
-.nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 4px; cursor: pointer; color: var(--ink-muted); transition: color 0.15s; border: none; background: none; font-size: 10px; font-weight: 500; letter-spacing: 0.04em; }
+.bottom-nav { background: #fff; border-top: 1px solid var(--border); display: flex; padding: 8px 0 0; padding-bottom: max(8px, env(safe-area-inset-bottom)); position: fixed; bottom: 0; left: 0; right: 0; z-index: 50; }
+.nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px 4px; cursor: pointer; color: var(--ink-muted); transition: color 0.15s; border: none; background: none; font-size: 10px; font-weight: 500; letter-spacing: 0.04em; }
 .nav-item svg { width: 22px; height: 22px; }
 .nav-item.active { color: var(--moss); }
 .nav-item.active svg { stroke: var(--moss); }
 
 /* ── TAB CONTENT ── */
-.tab-content { display: none; flex: 1; overflow-y: auto; padding: 20px 20px 80px; }
+.tab-content { display: none; flex: 1; overflow-y: auto; padding: 20px 20px 100px; }
 .tab-content.active { display: block; }
 
 /* ── WEEK VIEW ── */
@@ -587,10 +587,16 @@ html { font-size: 14px; }
       <div class="auth-sub" id="auth-sub">Start growing your garden</div>
     </div>
 
-    <!-- iOS PWA notice — shown when in standalone mode -->
+    <!-- iOS PWA notice -->
     <div id="pwa-notice" style="display:none;background:var(--sage-pale);border:1.5px solid var(--sage-light);border-radius:var(--r);padding:14px 16px;margin-bottom:20px;">
       <div style="font-size:0.85rem;font-weight:500;color:var(--moss);margin-bottom:4px;">📱 Using the home screen app?</div>
       <div style="font-size:0.8rem;color:var(--ink-light);line-height:1.5;">Create a new account here — the app has its own separate storage from Safari.</div>
+    </div>
+
+    <!-- Invite context notice -->
+    <div id="invite-context-notice" style="display:none;background:#fff8f0;border:1.5px solid #e8c4a0;border-radius:var(--r);padding:14px 16px;margin-bottom:20px;">
+      <div style="font-size:0.85rem;font-weight:500;color:#c4714a;margin-bottom:4px;">🌿 You've been invited!</div>
+      <div style="font-size:0.8rem;color:var(--ink-light);line-height:1.5;">Create your account below to send a join request. The garden owner will approve you.</div>
     </div>
 
     <div id="auth-form-signup">
@@ -610,6 +616,14 @@ html { font-size: 14px; }
       </div>
       <button class="btn btn-primary btn-full" style="margin-top: 8px;" onclick="doSignup()">Plant my garden 🌱</button>
       <div class="auth-switch">Already have an account? <a onclick="showAuth('login')">Sign in</a></div>
+      <!-- Join code option -->
+      <div style="margin-top:20px;padding-top:20px;border-top:1px solid var(--border);">
+        <div style="font-size:0.8rem;color:var(--ink-muted);margin-bottom:10px;text-align:center;">Have a friend's join code?</div>
+        <div style="display:flex;gap:8px;">
+          <input class="form-input" id="join-code-input" placeholder="Enter 6-digit code" maxlength="6" style="text-transform:uppercase;letter-spacing:0.1em;font-weight:600;text-align:center;flex:1;">
+        </div>
+        <div style="font-size:0.75rem;color:var(--ink-muted);margin-top:6px;text-align:center;">Fill your details above and enter the code to join their garden</div>
+      </div>
     </div>
 
     <div id="auth-form-login" style="display:none;">
@@ -723,10 +737,18 @@ html { font-size: 14px; }
     <div style="font-size:0.8rem;color:var(--ink-muted);margin-bottom:12px;">Up to 4 gardeners share this calendar</div>
     <div id="members-list"></div>
     <div class="invite-box" id="invite-box">
-      <div class="invite-title">Invite a friend</div>
-      <div class="invite-sub">Share your garden link or QR code. They'll join your calendar when they sign up.</div>
-      <div class="invite-link" id="invite-link-text"></div>
-      <div id="qr-container"></div>
+      <div class="invite-title">Invite a friend 🌿</div>
+      <div class="invite-sub">Share your link, QR code, or 6-digit code. They sign up and you approve them.</div>
+
+      <!-- 6-digit join code — big and easy to share verbally -->
+      <div style="background:#fff;border:1.5px solid var(--sage-light);border-radius:var(--r);padding:14px;margin-bottom:12px;text-align:center;">
+        <div style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--ink-muted);margin-bottom:6px;">Join code</div>
+        <div id="join-code-display" style="font-family:var(--font-display);font-size:2rem;letter-spacing:0.2em;color:var(--moss);font-weight:500;"></div>
+        <div style="font-size:0.72rem;color:var(--ink-muted);margin-top:4px;">They enter this on the sign-up screen</div>
+      </div>
+
+      <div class="invite-link" id="invite-link-text" style="font-size:0.7rem;word-break:break-all;"></div>
+      <div id="qr-container" style="margin:12px auto;"></div>
       <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
         <button class="btn btn-sm btn-secondary" onclick="copyInviteLink()">Copy link</button>
         <button class="btn btn-sm btn-primary" onclick="shareInviteLink()">Share</button>
@@ -796,15 +818,13 @@ html { font-size: 14px; }
     </div>
 
     <div class="modal-section">
-      <div style="display:flex;flex-direction:column;gap:12px;">
-        <div>
-          <label class="form-label">Date *</label>
-          <input class="form-input" id="ev-date" type="date">
-        </div>
-        <div>
-          <label class="form-label">Time</label>
-          <input class="form-input" id="ev-time" type="time">
-        </div>
+      <div>
+        <label class="form-label">Date *</label>
+        <input class="form-input" id="ev-date" type="date" style="margin-bottom:12px;">
+      </div>
+      <div>
+        <label class="form-label">Time</label>
+        <input class="form-input" id="ev-time" type="time">
       </div>
     </div>
 
@@ -943,9 +963,14 @@ function showScreen(id) {
 
 function showAuth(mode) {
   showScreen('auth');
-  // Show iOS PWA notice if running as installed app with no account
   const isPWA = window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
   document.getElementById('pwa-notice').style.display = isPWA ? 'block' : 'none';
+
+  // Show invite context if opening from an invite link
+  const params = new URLSearchParams(window.location.search);
+  const isInvite = params.get('garden') || params.get('code');
+  const inviteNotice = document.getElementById('invite-context-notice');
+  if(inviteNotice) inviteNotice.style.display = isInvite ? 'block' : 'none';
 
   if(mode === 'login') {
     document.getElementById('auth-title').textContent = 'Welcome back';
@@ -953,8 +978,8 @@ function showAuth(mode) {
     document.getElementById('auth-form-signup').style.display = 'none';
     document.getElementById('auth-form-login').style.display = 'block';
   } else {
-    document.getElementById('auth-title').textContent = 'Create account';
-    document.getElementById('auth-sub').textContent = 'Start growing your garden';
+    document.getElementById('auth-title').textContent = isInvite ? 'Join the garden' : 'Create account';
+    document.getElementById('auth-sub').textContent = isInvite ? 'Create your account to request access' : 'Start growing your garden';
     document.getElementById('auth-form-signup').style.display = 'block';
     document.getElementById('auth-form-login').style.display = 'none';
   }
@@ -983,21 +1008,45 @@ function doSignup() {
   if(users[username]) { errU.classList.add('show'); return; }
   const params = new URLSearchParams(window.location.search);
   const inviteGarden = params.get('garden');
+  const urlCode = params.get('code');
+  const inputCode = (document.getElementById('join-code-input')?.value || '').trim().toUpperCase();
+  const inviteCode = inputCode || urlCode;
+
   let gardenId, isPending = false;
-  if(inviteGarden && DB.get('events_' + inviteGarden) !== null) {
+
+  if(inviteGarden) {
+    // Joining via invite link - garden ID encoded directly in URL
     gardenId = inviteGarden;
-    isPending = true; // requires owner approval
+    isPending = true;
+  } else if(inviteCode) {
+    // Joining via 6-digit code
+    const codeMap = DB.get('garden_codes') || {};
+    const foundGarden = Object.entries(codeMap).find(([gid, code]) => code === inviteCode);
+    if(foundGarden) {
+      gardenId = foundGarden[0];
+      isPending = true;
+    } else {
+      showToast('Invalid join code — check with your friend');
+      return;
+    }
   } else {
     gardenId = 'g_' + Math.random().toString(36).substr(2,9);
+    // Generate a 6-digit join code for this garden
+    const code = Math.random().toString(36).substr(2,6).toUpperCase();
+    const codeMap = DB.get('garden_codes') || {};
+    codeMap[gardenId] = code;
+    DB.set('garden_codes', codeMap);
   }
+
   const user = { name, username, password: hashPass(password), gardenId, joinedAt: Date.now(), color: randomColor(), isOwner: !isPending, pending: isPending };
   users[username] = user;
   saveUsers(users);
   DB.set('session', { username, token: Date.now().toString(36) });
   setCurrentUser(user);
   currentUser = user;
+  window.history.replaceState({}, '', window.location.pathname);
   if(isPending) {
-    showToast('Request sent! Waiting for the garden owner to approve you 🌿');
+    showToast('Account created! Your join request has been sent 🌿');
   } else {
     showToast('Welcome to Roam., '+name+' 🌱');
   }
@@ -1702,7 +1751,11 @@ async function fetchEventFromUrl(rawUrl) {
     return name.length > 2 ? name : null;
   };
 
-  // ── proxy fetch ────────────────────────────────────────────────
+  // ── Eventbrite: extract event ID from URL for later use ────────
+  const ebMatch = url.match(/eventbrite\.com(?:\.au)?\/e\/[^\/]+-(\d+)/i) ||
+                  url.match(/eventbrite\.com(?:\.au)?\/.*\/(\d{8,})/i);
+  // (We'll use this after fetching HTML to target Eventbrite-specific JSON)
+
   const fetchViaProxy = async (targetUrl) => {
     const proxies = [
       async u => {
@@ -1742,9 +1795,56 @@ async function fetchEventFromUrl(rawUrl) {
     } catch(_) {}
   }
 
-  document.getElementById('url-spinner').style.display = 'none'; document.getElementById('url-loading-overlay').style.display = 'none';
+  // ── Eventbrite-specific extraction from fetched HTML ──────────
+  if(ebMatch && html) {
+    // Eventbrite stores event data in window.__SERVER_DATA__ or similar global
+    const ebPatterns = [
+      // Modern Eventbrite: data in script tag as JSON
+      /"event_id"\s*:\s*"\d+",[\s\S]{0,500}?"name"\s*:\s*"([^"]+)"/,
+      // start_date in various formats
+      /"start_date"\s*:\s*"([^"]+)"/,
+      /"start"\s*:\s*\{[^}]*"local"\s*:\s*"([^"]+)"/,
+      // venue
+      /"venue_name"\s*:\s*"([^"]+)"/,
+      /"venue"\s*:\s*\{[^}]*"name"\s*:\s*"([^"]+)"/,
+    ];
 
-  document.getElementById('url-spinner').style.display = 'none'; document.getElementById('url-loading-overlay').style.display = 'none';
+    // Try to extract from large JSON blobs embedded in scripts
+    const scriptBlocks = [...html.matchAll(/<script[^>]*>([\s\S]{100,50000}?)<\/script>/gi)];
+    for(const block of scriptBlocks) {
+      const src = block[1];
+      if(!src.includes('start') && !src.includes('event')) continue;
+      try {
+        // Look for Eventbrite's data structures
+        if(!info.name) {
+          const nm = src.match(/"name"\s*:\s*\{"text"\s*:\s*"([^"]+)"/) ||
+                     src.match(/"title"\s*:\s*"([^"\\]{3,100})"/) ||
+                     src.match(/"event_name"\s*:\s*"([^"\\]{3,100})"/);
+          if(nm) info.name = cleanText(nm[1]);
+        }
+        if(!info.date) {
+          // "start":{"timezone":"...","local":"2026-05-30T19:00:00","utc":"..."}
+          const dt = src.match(/"local"\s*:\s*"(20\d\d-\d\d-\d\dT\d\d:\d\d:\d\d)"/) ||
+                     src.match(/"start_date"\s*:\s*"(20\d\d-\d\d-\d\d)"/) ||
+                     src.match(/"startDate"\s*:\s*"(20\d\d-\d\d-\d\dT\d\d:\d\d)/);
+          if(dt) { const p=parseISODate(dt[1]); if(p&&isReasonableDate(p.date)){info.date=p.date;if(p.time&&isReasonableTime(p.time))info.time=p.time;} }
+        }
+        if(!info.location) {
+          const loc = src.match(/"venue_name"\s*:\s*"([^"\\]{2,80})"/) ||
+                      src.match(/"name"\s*:\s*"([^"\\]{2,60})"[^}]*"address"/) ||
+                      src.match(/"city"\s*:\s*"([^"\\]{2,60})"/);
+          if(loc && loc[1] && !/eventbrite|unknown/i.test(loc[1])) info.location = cleanText(loc[1]);
+        }
+        if(!info.notes) {
+          const desc = src.match(/"description"\s*:\s*\{"text"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+          if(desc) info.notes = cleanText(desc[1].replace(/\\n/g,' ').replace(/\\t/g,' ')).slice(0,200);
+        }
+        if(info.name && info.date) break;
+      } catch(_) {}
+    }
+  }
+
+
 
   if(!html || html.length < 200) {
     // Last resort: pull a name from the URL slug itself
@@ -2741,6 +2841,15 @@ function renderPeople() {
     return;
   }
 
+  // Ensure this garden has a join code
+  const codeMap = DB.get('garden_codes') || {};
+  if(!codeMap[gardenId]) {
+    codeMap[gardenId] = Math.random().toString(36).substr(2,6).toUpperCase();
+    DB.set('garden_codes', codeMap);
+  }
+  const joinCode = codeMap[gardenId];
+  document.getElementById('join-code-display').textContent = joinCode;
+
   // Invite link + QR
   const inviteUrl = window.location.origin + window.location.pathname + '?garden=' + gardenId;
   document.getElementById('invite-link-text').textContent = inviteUrl;
@@ -2748,7 +2857,7 @@ function renderPeople() {
   const qrEl = document.getElementById('qr-container');
   qrEl.innerHTML = '';
   if(typeof QRCode !== 'undefined') {
-    new QRCode(qrEl, { text: inviteUrl, width: 140, height: 140, colorDark: '#2E5C3E', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M });
+    new QRCode(qrEl, { text: inviteUrl, width: 130, height: 130, colorDark: '#2E5C3E', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M });
   }
 }
 
@@ -2926,8 +3035,8 @@ function esc(s) { if(!s) return ''; return String(s).replace(/&/g,'&amp;').repla
 function boot() {
   const params = new URLSearchParams(window.location.search);
   const inviteGarden = params.get('garden');
+  const inviteCode = params.get('code');
 
-  // Try session first (most reliable), then fall back to currentUser
   const session = DB.get('session');
   const savedUser = getCurrentUser();
   const users = getUsers();
@@ -2938,34 +3047,32 @@ function boot() {
   } else if(savedUser && savedUser.username && users[savedUser.username]) {
     user = users[savedUser.username];
   } else if(savedUser) {
-    // Legacy: currentUser not in users store — re-add them
     user = savedUser;
-    if(user.username) {
-      users[user.username] = user;
-      saveUsers(users);
-    }
+    if(user.username) { users[user.username] = user; saveUsers(users); }
   }
 
   if(user) {
     currentUser = user;
-    // Keep both stores in sync
     setCurrentUser(user);
     DB.set('session', { username: user.username, token: DB.get('session')?.token || Date.now().toString(36) });
 
+    // Already logged in but opening an invite link to a DIFFERENT garden
     if(inviteGarden && inviteGarden !== currentUser.gardenId) {
-      const gardenMembers = Object.values(users).filter(u => u.gardenId === inviteGarden);
-      if(gardenMembers.length < 4 && gardenMembers.length > 0) {
-        if(confirm(`${gardenMembers[0].name} has invited you to their Roam. garden. Join?`)) {
-          currentUser.gardenId = inviteGarden;
-          users[currentUser.username] = currentUser;
-          saveUsers(users);
-          setCurrentUser(currentUser);
-        }
+      // Mark this user as pending for the new garden
+      if(confirm('Join a new garden? You\'ll leave your current one.')) {
+        currentUser.gardenId = inviteGarden;
+        currentUser.pending = true;
+        currentUser.isOwner = false;
+        users[currentUser.username] = currentUser;
+        saveUsers(users);
+        setCurrentUser(currentUser);
+        showToast('Join request sent! Waiting for approval 🌿');
       }
       window.history.replaceState({}, '', window.location.pathname);
     }
     loadApp();
-  } else if(inviteGarden) {
+  } else if(inviteGarden || inviteCode) {
+    // No account yet — go to signup with the invite context preserved in URL
     showAuth('signup');
   } else {
     showScreen('onboard');
