@@ -159,7 +159,7 @@ h1,h2,h3 { font-family: var(--font-display); font-weight: 400; }
 .icon-btn:active { background: var(--cream-dark); }
 
 /* ── BOTTOM NAV ── */
-.bottom-nav { background: #fff; border-top: 1px solid var(--border); display: flex; padding: 8px 0 0; padding-bottom: max(8px, env(safe-area-inset-bottom)); position: fixed; bottom: 0; left: 0; right: 0; z-index: 50; }
+.bottom-nav { background: #fff; border-top: 1px solid var(--border); display: flex; padding: 6px 0 0; padding-bottom: max(20px, env(safe-area-inset-bottom)); position: fixed; bottom: 0; left: 0; right: 0; z-index: 50; }
 .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px 4px; cursor: pointer; color: var(--ink-muted); transition: color 0.15s; border: none; background: none; font-size: 10px; font-weight: 500; letter-spacing: 0.04em; }
 .nav-item svg { width: 22px; height: 22px; }
 .nav-item.active { color: var(--moss); }
@@ -404,13 +404,13 @@ html { font-size: 14px; }
   html { font-size: 16px; }
 }
 
-/* Landscape phone: make modal scrollable, reduce header */
+/* Landscape phone */
 @media (max-height: 600px) and (orientation: landscape) {
   .app-header { padding: 8px 16px; padding-top: max(8px, calc(env(safe-area-inset-top) + 4px)); }
-  .bottom-nav { padding: 2px 0 max(2px, env(safe-area-inset-bottom)); }
-  .nav-item { padding: 3px; gap: 1px; }
+  .bottom-nav { padding: 4px 0 0; padding-bottom: max(4px, env(safe-area-inset-bottom)); }
+  .nav-item { padding: 2px; gap: 1px; }
   .nav-item svg { width: 18px; height: 18px; }
-  .tab-content { padding-bottom: 56px; }
+  .tab-content { padding-bottom: 60px; }
   .modal { max-height: 85dvh; }
   #screen-onboard .onboard-steps { min-height: auto; padding-top: max(20px, calc(env(safe-area-inset-top) + 12px)); padding-bottom: max(16px, calc(env(safe-area-inset-bottom) + 8px)); justify-content: flex-start; }
   .step-logo { font-size: 1.6rem; margin-bottom: 4px; }
@@ -736,6 +736,17 @@ html { font-size: 14px; }
     <div style="font-size:0.75rem;font-weight:500;text-transform:uppercase;letter-spacing:0.06em;color:var(--ink-muted);margin-bottom:10px;">Your garden party 🌸</div>
     <div style="font-size:0.8rem;color:var(--ink-muted);margin-bottom:12px;">Up to 4 gardeners share this calendar</div>
     <div id="members-list"></div>
+
+    <!-- Join another garden by code -->
+    <div id="join-garden-box" style="background:#fff;border:1.5px solid var(--border);border-radius:var(--r);padding:16px;margin-top:12px;margin-bottom:4px;">
+      <div style="font-size:0.85rem;font-weight:500;color:var(--ink);margin-bottom:4px;">Join a friend's garden</div>
+      <div style="font-size:0.78rem;color:var(--ink-muted);margin-bottom:12px;">Enter the 6-digit code from your friend's profile</div>
+      <div style="display:flex;gap:8px;">
+        <input id="profile-join-code" class="form-input" placeholder="e.g. K7X2MQ" maxlength="6" style="flex:1;text-transform:uppercase;letter-spacing:0.12em;font-weight:600;text-align:center;font-size:1rem;">
+        <button onclick="joinByCode()" class="btn btn-primary" style="flex-shrink:0;padding:0 18px;">Join</button>
+      </div>
+    </div>
+
     <div class="invite-box" id="invite-box">
       <div class="invite-title">Invite a friend 🌿</div>
       <div class="invite-sub">Share your link, QR code, or 6-digit code. They sign up and you approve them.</div>
@@ -818,14 +829,10 @@ html { font-size: 14px; }
     </div>
 
     <div class="modal-section">
-      <div>
-        <label class="form-label">Date *</label>
-        <input class="form-input" id="ev-date" type="date" style="margin-bottom:12px;">
-      </div>
-      <div>
-        <label class="form-label">Time</label>
-        <input class="form-input" id="ev-time" type="time">
-      </div>
+      <label class="form-label">Date *</label>
+      <input class="form-input" id="ev-date" type="date" style="width:100%;box-sizing:border-box;margin-bottom:12px;">
+      <label class="form-label">Time</label>
+      <input class="form-input" id="ev-time" type="time" style="width:100%;box-sizing:border-box;">
     </div>
 
     <div class="modal-section">
@@ -2265,7 +2272,8 @@ async function fetchEventFromUrl(rawUrl) {
 function saveEvent() {
   const name = document.getElementById('ev-name').value.trim();
   const date = document.getElementById('ev-date').value;
-  if(!name || !date) { showToast('Please add a name and date'); return; }
+  if(!name) { showToast('Please add an event name'); return; }
+  if(!date) { showToast('Please add a date'); return; }
 
   const ev = {
     id: 'ev_'+Date.now(),
@@ -2286,10 +2294,22 @@ function saveEvent() {
   const events = getEvents(currentUser.gardenId);
   events.push(ev);
   saveEvents(currentUser.gardenId, events);
+  lastEventHash = ''; // force refresh
   closeModal('modal-add');
-  showToast('Event added! 🌱');
+  showToast(name + ' added! 🌱');
+
+  // Navigate week view to show the new event's date
+  const evDate = new Date(date + 'T00:00:00');
+  const today = new Date(); today.setHours(0,0,0,0);
+  const diffDays = Math.round((evDate - today) / 86400000);
+  weekOffset = Math.floor(diffDays / 7);
+
   renderWeek();
   renderCalendar();
+  renderGarden();
+
+  // Switch to week tab so user sees the new event immediately
+  switchTab('week', document.querySelector('[data-tab="week"]'));
 }
 
 // ═══════════════════════════════════════
@@ -2882,6 +2902,31 @@ function denyMember(username) {
   }
 }
 
+function joinByCode() {
+  const code = (document.getElementById('profile-join-code')?.value || '').trim().toUpperCase();
+  if(!code || code.length < 4) { showToast('Enter a valid join code'); return; }
+
+  const codeMap = DB.get('garden_codes') || {};
+  const found = Object.entries(codeMap).find(([gid, c]) => c === code);
+  if(!found) { showToast('Code not found — check with your friend'); return; }
+
+  const newGardenId = found[0];
+  if(newGardenId === currentUser.gardenId) { showToast('You\'re already in this garden!'); return; }
+
+  // Mark as pending for the new garden
+  const users = getUsers();
+  currentUser.gardenId = newGardenId;
+  currentUser.pending = true;
+  currentUser.isOwner = false;
+  users[currentUser.username] = currentUser;
+  saveUsers(users);
+  setCurrentUser(currentUser);
+  document.getElementById('profile-join-code').value = '';
+  showToast('Join request sent! Waiting for the owner to approve 🌿');
+  renderPeople();
+  renderWeek();
+}
+
 function copyInviteLink() {
   const url = document.getElementById('invite-link-text').textContent;
   navigator.clipboard.writeText(url).then(() => showToast('Link copied!')).catch(() => showToast('Copy manually: ' + url));
@@ -3080,6 +3125,25 @@ function boot() {
 }
 
 boot();
+
+// ── Fix bottom nav height dynamically based on actual safe area ──
+(function fixNavHeight() {
+  const nav = document.querySelector('.bottom-nav');
+  if(!nav) return;
+  // Read the actual computed safe-area-inset-bottom at runtime
+  const safeBottom = parseInt(getComputedStyle(document.documentElement)
+    .getPropertyValue('--sab') || '0');
+  // Use CSS env() but also set a min via JS for devices where env() returns 0
+  const isIOS = /iphone|ipad/i.test(navigator.userAgent);
+  if(isIOS && window.screen.height >= 812) {
+    // Face ID iPhones (X and later) have ~34px home indicator
+    nav.style.paddingBottom = Math.max(34, safeBottom) + 'px';
+  }
+  // Also update FAB and toast positions
+  const fab = document.querySelector('.add-fab');
+  const navH = nav.getBoundingClientRect().height || 56;
+  if(fab) fab.style.bottom = (navH + 12) + 'px';
+});
 
 // ── PWA: register service worker ──────────────────────────────
 if('serviceWorker' in navigator) {
