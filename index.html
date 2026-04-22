@@ -159,7 +159,7 @@ h1,h2,h3 { font-family: var(--font-display); font-weight: 400; }
 .icon-btn:active { background: var(--cream-dark); }
 
 /* ── BOTTOM NAV ── */
-.bottom-nav { background: #fff; border-top: 1px solid var(--border); display: flex; padding: 4px 0 max(4px, env(safe-area-inset-bottom)); position: sticky; bottom: 0; z-index: 50; }
+.bottom-nav { background: #fff; border-top: 1px solid var(--border); display: flex; padding: 4px 0 0; padding-bottom: max(16px, env(safe-area-inset-bottom)); position: sticky; bottom: 0; z-index: 50; }
 .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 4px; cursor: pointer; color: var(--ink-muted); transition: color 0.15s; border: none; background: none; font-size: 10px; font-weight: 500; letter-spacing: 0.04em; }
 .nav-item svg { width: 22px; height: 22px; }
 .nav-item.active { color: var(--moss); }
@@ -795,14 +795,16 @@ html { font-size: 14px; }
       <input class="form-input" id="ev-name" placeholder="e.g. Sunday Farmers Market">
     </div>
 
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;" class="modal-section">
-      <div>
-        <label class="form-label">Date *</label>
-        <input class="form-input" id="ev-date" type="date">
-      </div>
-      <div>
-        <label class="form-label">Time</label>
-        <input class="form-input" id="ev-time" type="time">
+    <div class="modal-section">
+      <div style="display:flex;flex-direction:column;gap:12px;">
+        <div>
+          <label class="form-label">Date *</label>
+          <input class="form-input" id="ev-date" type="date">
+        </div>
+        <div>
+          <label class="form-label">Time</label>
+          <input class="form-input" id="ev-time" type="time">
+        </div>
       </div>
     </div>
 
@@ -981,21 +983,24 @@ function doSignup() {
   if(users[username]) { errU.classList.add('show'); return; }
   const params = new URLSearchParams(window.location.search);
   const inviteGarden = params.get('garden');
-  let gardenId;
-  if(inviteGarden && getEvents(inviteGarden) !== null) {
+  let gardenId, isPending = false;
+  if(inviteGarden && DB.get('events_' + inviteGarden) !== null) {
     gardenId = inviteGarden;
+    isPending = true; // requires owner approval
   } else {
     gardenId = 'g_' + Math.random().toString(36).substr(2,9);
   }
-  const user = { name, username, password: hashPass(password), gardenId, joinedAt: Date.now(), color: randomColor() };
+  const user = { name, username, password: hashPass(password), gardenId, joinedAt: Date.now(), color: randomColor(), isOwner: !isPending, pending: isPending };
   users[username] = user;
   saveUsers(users);
-  // Store session — save full user + a session token
-  const session = { username, token: Date.now().toString(36) };
-  DB.set('session', session);
+  DB.set('session', { username, token: Date.now().toString(36) });
   setCurrentUser(user);
   currentUser = user;
-  showToast('Welcome to Roam., '+name+' 🌱');
+  if(isPending) {
+    showToast('Request sent! Waiting for the garden owner to approve you 🌿');
+  } else {
+    showToast('Welcome to Roam., '+name+' 🌱');
+  }
   loadApp();
 }
 
@@ -1138,6 +1143,17 @@ function shiftWeek(dir) {
 }
 
 function renderWeek() {
+  // Show pending notice if user hasn't been approved yet
+  if(currentUser.pending) {
+    const container = document.getElementById('week-container');
+    if(container) container.innerHTML = `
+      <div style="text-align:center;padding:40px 20px;">
+        <div style="font-size:2.5rem;margin-bottom:16px;">⏳</div>
+        <div style="font-family:var(--font-display);font-size:1.3rem;color:var(--ink);margin-bottom:8px;">Waiting for approval</div>
+        <div style="font-size:0.9rem;color:var(--ink-muted);line-height:1.5;">The garden owner needs to approve your request before you can see the shared calendar.</div>
+      </div>`;
+    return;
+  }
   const now = new Date();
   const thisMonday = new Date(now);
   thisMonday.setDate(now.getDate() - ((now.getDay()+6)%7));
@@ -1768,7 +1784,6 @@ async function fetchEventFromUrl(rawUrl) {
   let info = {};
   const today = new Date(); today.setHours(0,0,0,0);
 
-  // Validate a parsed date isn't in the past or too far future
   const isReasonableDate = dateStr => {
     if(!dateStr) return false;
     const d = new Date(dateStr + 'T00:00:00');
@@ -1776,13 +1791,76 @@ async function fetchEventFromUrl(rawUrl) {
     return d >= today && d <= maxFuture;
   };
 
-  // Validate a time isn't a "meta" time (modified/published timestamps often appear as HH:MM in page source)
-  // Strategy: only accept times found near date context in plain text, not from meta tags
   const isReasonableTime = t => {
     if(!t) return false;
     const [h] = t.split(':').map(Number);
-    return h >= 6 && h <= 23; // event times are almost never before 6am
+    return h >= 6 && h <= 23;
   };
+
+  // ── 0. Site-specific extraction (Eventbrite, Humanitix etc) ────
+  // Eventbrite embeds data in window.__SERVER_DATA__ or similar
+  const extractEmbeddedJSON = () => {
+    const patterns = [
+      /window\.__SERVER_DATA__\s*=\s*({[\s\S]+?});\s*(?:window|<\/script>)/,
+      /window\.__data\s*=\s*({[\s\S]+?});\s*(?:window|<\/script>)/,
+      /window\.__REDUX_STATE__\s*=\s*({[\s\S]+?});\s*(?:<\/script>)/,
+      /"event"\s*:\s*({[^{}]*"name"[^{}]*"start"[^{}]*})/,
+      /"listing"\s*:\s*({[^{}]*"title"[^{}]*})/,
+    ];
+    for(const pat of patterns) {
+      const m = html.match(pat);
+      if(!m) continue;
+      try {
+        const obj = JSON.parse(m[1]);
+        // Eventbrite structure: obj.event or obj.listing
+        const ev = obj.event || obj.listing || obj;
+        if(ev.name || ev.title) {
+          if(!info.name) info.name = cleanText(String(ev.name || ev.title || ''));
+          // Date from start.utc or start.local
+          if(!info.date && ev.start) {
+            const startStr = ev.start.local || ev.start.utc || ev.start;
+            if(typeof startStr === 'string') {
+              const p = parseISODate(startStr);
+              if(p && isReasonableDate(p.date)) { info.date = p.date; if(p.time && isReasonableTime(p.time)) info.time = p.time; }
+            }
+          }
+          if(!info.notes && ev.description) {
+            const desc = typeof ev.description === 'object' ? ev.description.text || ev.description.html || '' : String(ev.description);
+            info.notes = cleanText(desc.replace(/<[^>]+>/g,' ')).slice(0,200) || null;
+          }
+          if(!info.location && ev.venue) {
+            const v = ev.venue;
+            const parts = [v.name, v.address?.localized_address_display || v.address?.city].filter(Boolean);
+            if(parts.length) info.location = cleanText(parts.join(', '));
+          }
+        }
+      } catch(_) {}
+    }
+  };
+  extractEmbeddedJSON();
+
+  // Also try Next.js / Nuxt __NEXT_DATA__ (used by Eventbrite, TryBooking etc)
+  const nextData = html.match(/<script id="__NEXT_DATA__"[^>]*>({[\s\S]+?})<\/script>/);
+  if(nextData) {
+    try {
+      const obj = JSON.parse(nextData[1]);
+      // Walk props.pageProps to find event data
+      const props = obj?.props?.pageProps;
+      if(props) {
+        const candidates = [props.event, props.listing, props.data?.event, props.eventData, props.initialData?.event].filter(Boolean);
+        for(const ev of candidates) {
+          if(!info.name && (ev.name || ev.title)) info.name = cleanText(String(ev.name || ev.title));
+          if(!info.date) {
+            const startStr = ev.start_date || ev.startDate || ev.start?.local || ev.start?.utc || ev.date;
+            if(startStr) { const p=parseISODate(String(startStr)); if(p&&isReasonableDate(p.date)){info.date=p.date;if(p.time&&isReasonableTime(p.time))info.time=p.time;} }
+          }
+          if(!info.location && ev.venue_name) info.location = cleanText(ev.venue_name);
+          if(!info.location && ev.venue) info.location = cleanText(typeof ev.venue==='string'?ev.venue:ev.venue.name||'');
+          if(!info.notes && ev.description) info.notes = cleanText(String(typeof ev.description==='object'?ev.description.text||'':ev.description).replace(/<[^>]+>/g,' ')).slice(0,200)||null;
+        }
+      }
+    } catch(_) {}
+  }
 
   // ── 1. JSON-LD — scan ALL blocks, best Event object ────────────
   const ldMatches = [...html.matchAll(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)];
@@ -2121,23 +2199,28 @@ function openEventDetail(id) {
   const events = getEvents(currentUser.gardenId);
   const ev = events.find(e => e.id === id);
   if(!ev) return;
+  renderEventDetail(ev);
+  openModal('modal-event');
+}
 
+function renderEventDetail(ev) {
   const catEmoji = {community:'🌿',music:'🎵',food:'🍜',art:'🎨',sports:'⚡',other:'✨'};
   const plantEmoji = ['🌸','🌼','🌺','🌻','🌷','🌱'][Math.floor(Math.random()*6)];
 
   document.getElementById('event-detail-content').innerHTML = `
-    ${ev.image ? `<div style="margin:-0px -0px 16px;"><img src="${ev.image}" style="width:100%;max-height:200px;object-fit:cover;border-radius:var(--r) var(--r) 0 0;" alt="${esc(ev.name)}"></div>` : ''}
-    <div style="margin-bottom:16px;">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
-        <span style="font-size:1.4rem;">${catEmoji[ev.category]||'✨'}</span>
-        <h2 style="font-family:var(--font-display);font-size:1.4rem;color:var(--ink);line-height:1.2;">${esc(ev.name)}</h2>
+    ${ev.image ? `<div style="margin:0 -20px 16px;"><img src="${ev.image}" style="width:calc(100% + 40px);max-height:200px;object-fit:cover;border-radius:var(--r) var(--r) 0 0;" alt="${esc(ev.name)}"></div>` : ''}
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:12px;">
+      <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0;">
+        <span style="font-size:1.4rem;flex-shrink:0;">${catEmoji[ev.category]||'✨'}</span>
+        <h2 style="font-family:var(--font-display);font-size:1.3rem;color:var(--ink);line-height:1.2;word-break:break-word;">${esc(ev.name)}</h2>
       </div>
-      ${ev.completed?`<div style="display:inline-flex;align-items:center;gap:6px;background:var(--sage-pale);color:var(--moss);padding:4px 12px;border-radius:20px;font-size:0.8rem;font-weight:500;">${plantEmoji} Attended!</div>`:''}
+      <button onclick="openEditEvent('${ev.id}')" style="flex-shrink:0;background:var(--cream-dark);border:1px solid var(--border);border-radius:8px;padding:6px 12px;font-size:0.8rem;font-weight:500;color:var(--ink-light);cursor:pointer;">Edit</button>
     </div>
+    ${ev.completed?`<div style="display:inline-flex;align-items:center;gap:6px;background:var(--sage-pale);color:var(--moss);padding:4px 12px;border-radius:20px;font-size:0.8rem;font-weight:500;margin-bottom:12px;">${plantEmoji} Attended!</div>`:''}
     <div style="background:#fff;border:1px solid var(--border);border-radius:var(--r);padding:16px;margin-bottom:16px;">
-      ${ev.date?`<div style="display:flex;gap:10px;margin-bottom:12px;align-items:flex-start;"><span style="width:18px;text-align:center;flex-shrink:0;margin-top:2px;">📅</span><div><div style="font-size:0.75rem;color:var(--ink-muted);margin-bottom:1px;text-transform:uppercase;letter-spacing:0.04em;">Date</div><div style="font-weight:500;">${fmtDateFull(ev.date)}${ev.time?' · '+fmtTime(ev.time):''}</div></div></div>`:''}
-      ${ev.location?`<div style="display:flex;gap:10px;margin-bottom:12px;align-items:flex-start;"><span style="width:18px;text-align:center;flex-shrink:0;margin-top:2px;">📍</span><div><div style="font-size:0.75rem;color:var(--ink-muted);margin-bottom:1px;text-transform:uppercase;letter-spacing:0.04em;">Location</div><div style="font-weight:500;">${esc(ev.location)}</div></div></div>`:''}
-      ${ev.notes?`<div style="display:flex;gap:10px;align-items:flex-start;"><span style="width:18px;text-align:center;flex-shrink:0;margin-top:2px;">📝</span><div><div style="font-size:0.75rem;color:var(--ink-muted);margin-bottom:1px;text-transform:uppercase;letter-spacing:0.04em;">Notes</div><div style="font-size:0.9rem;color:var(--ink-light);line-height:1.5;">${esc(ev.notes)}</div></div></div>`:''}
+      ${ev.date?`<div style="display:flex;gap:10px;margin-bottom:10px;align-items:flex-start;"><span style="width:18px;text-align:center;flex-shrink:0;">📅</span><div><div style="font-size:0.7rem;color:var(--ink-muted);text-transform:uppercase;letter-spacing:0.04em;">Date</div><div style="font-weight:500;">${fmtDateFull(ev.date)}${ev.time?' · '+fmtTime(ev.time):''}</div></div></div>`:''}
+      ${ev.location?`<div style="display:flex;gap:10px;margin-bottom:10px;align-items:flex-start;"><span style="width:18px;text-align:center;flex-shrink:0;">📍</span><div><div style="font-size:0.7rem;color:var(--ink-muted);text-transform:uppercase;letter-spacing:0.04em;">Location</div><div style="font-weight:500;">${esc(ev.location)}</div></div></div>`:''}
+      ${ev.notes?`<div style="display:flex;gap:10px;align-items:flex-start;"><span style="width:18px;text-align:center;flex-shrink:0;">📝</span><div><div style="font-size:0.7rem;color:var(--ink-muted);text-transform:uppercase;letter-spacing:0.04em;">Notes</div><div style="font-size:0.9rem;color:var(--ink-light);line-height:1.5;">${esc(ev.notes)}</div></div></div>`:''}
     </div>
     <button class="btn ${ev.completed?'btn-secondary':'btn-primary'} btn-full" style="margin-bottom:10px;" onclick="toggleComplete('${ev.id}');closeModal('modal-event');renderWeek();">
       ${ev.completed ? '↩ Mark as not attended' : '✓ Mark as attended'}
@@ -2146,7 +2229,86 @@ function openEventDetail(id) {
     <button class="btn btn-danger btn-full" style="margin-bottom:10px;" onclick="deleteEvent('${ev.id}')">Delete event</button>
     <button class="btn btn-ghost btn-full" onclick="closeModal('modal-event')">Close</button>
   `;
-  openModal('modal-event');
+}
+
+function openEditEvent(id) {
+  const events = getEvents(currentUser.gardenId);
+  const ev = events.find(e => e.id === id);
+  if(!ev) return;
+
+  const cats = ['community','music','food','art','sports','other'];
+  const catLabels = {community:'🌿 Community',music:'🎵 Music',food:'🍜 Food',art:'🎨 Art',sports:'⚡ Active',other:'✨ Other'};
+
+  document.getElementById('event-detail-content').innerHTML = `
+    <h2 style="font-family:var(--font-display);font-size:1.3rem;margin-bottom:16px;">Edit event</h2>
+    <div class="form-group">
+      <label class="form-label">Event name *</label>
+      <input class="form-input" id="edit-name" value="${esc(ev.name)}">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Date *</label>
+      <input class="form-input" id="edit-date" type="date" value="${ev.date||''}">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Time</label>
+      <input class="form-input" id="edit-time" type="time" value="${ev.time||''}">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Location</label>
+      <input class="form-input" id="edit-location" value="${esc(ev.location||'')}">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Category</label>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:4px;">
+        ${cats.map(c=>`<button type="button" id="edit-cat-${c}" onclick="selectEditCat('${c}')" style="padding:8px 4px;border-radius:var(--r-sm);border:1.5px solid ${ev.category===c?'var(--moss)':'var(--border)'};background:${ev.category===c?'var(--sage-pale)':'#fff'};font-size:0.8rem;cursor:pointer;color:${ev.category===c?'var(--moss)':'var(--ink-muted)'};">${catLabels[c]}</button>`).join('')}
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Notes</label>
+      <textarea class="form-input" id="edit-notes" rows="3" style="resize:none;">${esc(ev.notes||'')}</textarea>
+    </div>
+    <button class="btn btn-primary btn-full" style="margin-bottom:10px;" onclick="saveEditEvent('${ev.id}')">Save changes</button>
+    <button class="btn btn-ghost btn-full" onclick="renderEventDetail(getEvents(currentUser.gardenId).find(e=>e.id==='${ev.id}'))">Cancel</button>
+  `;
+  window._editCat = ev.category || 'other';
+}
+
+function selectEditCat(cat) {
+  window._editCat = cat;
+  const cats = ['community','music','food','art','sports','other'];
+  cats.forEach(c => {
+    const btn = document.getElementById('edit-cat-'+c);
+    if(!btn) return;
+    btn.style.borderColor = c===cat ? 'var(--moss)' : 'var(--border)';
+    btn.style.background  = c===cat ? 'var(--sage-pale)' : '#fff';
+    btn.style.color       = c===cat ? 'var(--moss)' : 'var(--ink-muted)';
+  });
+}
+
+function saveEditEvent(id) {
+  const name = document.getElementById('edit-name').value.trim();
+  if(!name) { showToast('Event name is required'); return; }
+  const date = document.getElementById('edit-date').value;
+  if(!date) { showToast('Date is required'); return; }
+
+  const events = getEvents(currentUser.gardenId);
+  const idx = events.findIndex(e => e.id === id);
+  if(idx === -1) return;
+
+  events[idx] = {
+    ...events[idx],
+    name,
+    date,
+    time: document.getElementById('edit-time').value || null,
+    location: document.getElementById('edit-location').value.trim() || null,
+    notes: document.getElementById('edit-notes').value.trim() || null,
+    category: window._editCat || events[idx].category,
+  };
+
+  saveEvents(currentUser.gardenId, events);
+  renderWeek(); renderCalendar();
+  renderEventDetail(events[idx]);
+  showToast('Event updated ✓');
 }
 
 function deleteEvent(id) {
@@ -2514,12 +2676,18 @@ function setGardenPeriod(p, el) {
 // ═══════════════════════════════════════
 function renderPeople() {
   const users = getUsers();
-  const members = Object.values(users).filter(u => u.gardenId === currentUser.gardenId);
-  const events = getEvents(currentUser.gardenId);
+  const gardenId = currentUser.gardenId;
+  const members = Object.values(users).filter(u => u.gardenId === gardenId && !u.pending);
+  const pending = Object.values(users).filter(u => u.gardenId === gardenId && u.pending);
+  const events = getEvents(gardenId);
+  const isOwner = currentUser.username === (Object.values(users).find(u => u.gardenId === gardenId && u.isOwner)||{}).username
+    || members.sort((a,b)=>a.joinedAt-b.joinedAt)[0]?.username === currentUser.username;
 
   const list = document.getElementById('members-list');
   list.innerHTML = '';
-  members.forEach(m => {
+
+  // Approved members
+  members.sort((a,b)=>a.joinedAt-b.joinedAt).forEach(m => {
     const attended = events.filter(e => e.completed && e.addedBy === m.username).length;
     const div = document.createElement('div');
     div.className = 'garden-member';
@@ -2527,27 +2695,81 @@ function renderPeople() {
       <div class="member-avatar" style="background:${m.color+'22'};border-color:${m.color}40;color:${m.color};">${m.name[0].toUpperCase()}</div>
       <div class="member-info">
         <div class="member-name">${esc(m.name)}</div>
-        <div class="member-stats">@${esc(m.username)} · ${attended} events attended</div>
+        <div class="member-stats">@${esc(m.username)} · ${attended} attended</div>
       </div>
       ${m.username===currentUser.username?'<span class="member-badge">You</span>':''}
     `;
     list.appendChild(div);
   });
 
+  // Pending requests — only owner can see/approve
+  if(isOwner && pending.length > 0) {
+    const hdr = document.createElement('div');
+    hdr.style.cssText = 'font-size:0.75rem;font-weight:500;text-transform:uppercase;letter-spacing:0.06em;color:var(--terracotta);margin:16px 0 8px;';
+    hdr.textContent = `${pending.length} join request${pending.length>1?'s':''}`;
+    list.appendChild(hdr);
+
+    pending.forEach(m => {
+      const div = document.createElement('div');
+      div.className = 'garden-member';
+      div.style.background = 'var(--cream-dark)';
+      div.innerHTML = `
+        <div class="member-avatar" style="background:#f5e6d3;border-color:#e8b99a;color:#c4714a;">${m.name[0].toUpperCase()}</div>
+        <div class="member-info">
+          <div class="member-name">${esc(m.name)}</div>
+          <div class="member-stats">@${esc(m.username)} wants to join</div>
+        </div>
+        <div style="display:flex;gap:6px;flex-shrink:0;">
+          <button onclick="approveMember('${m.username}')" style="background:var(--moss);color:#fff;border:none;border-radius:6px;padding:6px 10px;font-size:0.75rem;cursor:pointer;font-weight:500;">✓ Approve</button>
+          <button onclick="denyMember('${m.username}')" style="background:transparent;color:var(--terracotta);border:1px solid var(--terracotta);border-radius:6px;padding:6px 10px;font-size:0.75rem;cursor:pointer;">✕</button>
+        </div>
+      `;
+      list.appendChild(div);
+    });
+  }
+
+  // Show pending notice to the requester themselves
+  if(currentUser.pending) {
+    const notice = document.createElement('div');
+    notice.style.cssText = 'background:var(--sage-pale);border:1px solid var(--sage-light);border-radius:var(--r);padding:14px 16px;margin-top:12px;font-size:0.85rem;color:var(--moss);text-align:center;';
+    notice.textContent = '⏳ Your request to join is pending approval from the garden owner.';
+    list.appendChild(notice);
+  }
+
   if(members.length >= 4) {
     document.getElementById('invite-box').style.display = 'none';
     return;
   }
 
-  // Invite link
-  const inviteUrl = window.location.origin + window.location.pathname + '?garden=' + currentUser.gardenId;
+  // Invite link + QR
+  const inviteUrl = window.location.origin + window.location.pathname + '?garden=' + gardenId;
   document.getElementById('invite-link-text').textContent = inviteUrl;
 
-  // QR code
   const qrEl = document.getElementById('qr-container');
   qrEl.innerHTML = '';
   if(typeof QRCode !== 'undefined') {
     new QRCode(qrEl, { text: inviteUrl, width: 140, height: 140, colorDark: '#2E5C3E', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M });
+  }
+}
+
+function approveMember(username) {
+  const users = getUsers();
+  if(users[username]) {
+    users[username].pending = false;
+    saveUsers(users);
+    showToast(users[username].name + ' has joined your garden! 🌿');
+    renderPeople();
+  }
+}
+
+function denyMember(username) {
+  const users = getUsers();
+  if(users[username]) {
+    // Remove them from the garden
+    delete users[username];
+    saveUsers(users);
+    showToast('Request declined');
+    renderPeople();
   }
 }
 
