@@ -394,14 +394,14 @@ html { font-size: 14px; }
 /* xl: 600px+ — tablets, landscape phones, desktop */
 @media (min-width: 600px) {
   body { background: var(--cream-dark); }
-  #screen-app { max-width: 540px; margin: 0 auto; background: var(--cream); min-height: 100dvh; box-shadow: 0 0 40px rgba(28,28,26,0.1); }
+  #screen-app { max-width: 540px; margin: 0 auto; background: var(--cream); min-height: 100dvh; box-shadow: 0 0 40px rgba(28,28,26,0.1); position: relative; }
   #screen-auth { max-width: 480px; margin: 0 auto; }
   #screen-onboard { max-width: 480px; margin: 0 auto; }
   .modal { max-width: 500px; margin: 0 auto; border-radius: 20px; }
   .modal-backdrop { align-items: center; }
-  .bottom-nav { max-width: 540px; margin: 0 auto; left: 50%; transform: translateX(-50%); width: 100%; position: fixed; }
-  .app-header { max-width: 540px; margin: 0 auto; left: 50%; transform: translateX(-50%); width: 100%; position: fixed; top: 0; }
-  .tab-content { padding: 24px 24px 100px; padding-top: 80px; }
+  .bottom-nav { max-width: 540px; left: 50%; transform: translateX(-50%); width: 100%; position: fixed; }
+  .app-header { max-width: 540px; margin: 0 auto; position: sticky; top: 0; }
+  .tab-content { padding: 24px 24px 100px; }
   html { font-size: 16px; }
 }
 
@@ -1211,6 +1211,7 @@ async function loadApp() {
     // Pull users (members + pending requests)
     await pullGardenUsers(gardenId);
     renderPeople();
+    renderProfile(); // re-render after server pull
     // Push current user to server (ensures they're registered)
     pushUserToServer(currentUser);
   }
@@ -3030,6 +3031,8 @@ function renderPeople() {
     leaveDiv.innerHTML = `<button onclick="leaveGarden()" class="btn btn-danger btn-full" style="font-size:0.85rem;">Leave this garden</button>`;
     list.appendChild(leaveDiv);
   }
+
+  const inviteBox = document.getElementById('invite-box');
   const joinGardenBox = document.getElementById('join-garden-box');
 
   // Only the owner can invite more people
@@ -3119,16 +3122,23 @@ function shareInviteLink() {
 // PROFILE
 // ═══════════════════════════════════════
 function renderProfile() {
+  if(!currentUser) return;
+  const avatarEl = document.getElementById('profile-avatar');
+  const nameEl = document.getElementById('profile-name-display');
+  const usernameEl = document.getElementById('profile-username-display');
+  const joinedEl = document.getElementById('profile-joined');
+  const statsEl = document.getElementById('profile-stats');
+  if(!avatarEl) return;
+
   const events = getEvents(currentUser.gardenId);
   const allCompleted = events.filter(e => e.completed && e.addedBy === currentUser.username).length;
   const myEvents = events.filter(e => e.addedBy === currentUser.username).length;
 
-  document.getElementById('profile-avatar').textContent = currentUser.name[0].toUpperCase();
-  document.getElementById('profile-name-display').textContent = currentUser.name;
-  document.getElementById('profile-username-display').textContent = '@' + currentUser.username;
-  document.getElementById('profile-joined').textContent = 'Gardening since ' + new Date(currentUser.joinedAt).toLocaleDateString('en-GB',{month:'long',year:'numeric'});
-
-  document.getElementById('profile-stats').innerHTML = `
+  avatarEl.textContent = (currentUser.name || '?')[0].toUpperCase();
+  if(nameEl) nameEl.textContent = currentUser.name || '';
+  if(usernameEl) usernameEl.textContent = '@' + (currentUser.username || '');
+  if(joinedEl) joinedEl.textContent = 'Gardening since ' + new Date(currentUser.joinedAt).toLocaleDateString('en-GB',{month:'long',year:'numeric'});
+  if(statsEl) statsEl.innerHTML = `
     <div class="stat-card"><div class="stat-num">${myEvents}</div><div class="stat-lbl">Added</div></div>
     <div class="stat-card"><div class="stat-num">${allCompleted}</div><div class="stat-lbl">Attended</div></div>
     <div class="stat-card"><div class="stat-num">${calcStreak(events)}</div><div class="stat-lbl">Streak</div></div>
