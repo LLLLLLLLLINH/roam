@@ -1053,11 +1053,14 @@ function doSignup() {
   currentUser = user;
   window.history.replaceState({}, '', window.location.pathname);
   if(isPending) {
-    showToast('Account created! Waiting for the owner to approve you 🌿');
+    showToast('Account created! 🌿');
+    loadApp();
+    // Show approval link immediately after app loads
+    setTimeout(() => showApprovalModal(user), 600);
   } else {
     showToast('Welcome to Roam., '+name+' 🌱');
+    loadApp();
   }
-  loadApp();
 }
 
 function doLogin() {
@@ -1119,20 +1122,18 @@ function loadApp() {
 // ── Live updates ──────────────────────────────────────────────
 let liveUpdateTimer = null;
 let lastEventHash = '';
+let lastPendingHash = '';
 
 function startLiveUpdates() {
-  // Poll every 2 seconds for changes (catches same-device updates)
   if(liveUpdateTimer) clearInterval(liveUpdateTimer);
   liveUpdateTimer = setInterval(checkForUpdates, 2000);
 
-  // Also listen for storage events (catches cross-tab updates)
   window.addEventListener('storage', e => {
-    if(e.key && e.key.includes('bloom_events')) {
+    if(e.key && (e.key.includes('bloom_events') || e.key.includes('bloom_users'))) {
       refreshCurrentTab();
     }
   });
 
-  // Re-render when app comes back into focus (lock screen, tab switch)
   document.addEventListener('visibilitychange', () => {
     if(!document.hidden) refreshCurrentTab();
   });
@@ -1147,6 +1148,18 @@ function checkForUpdates() {
   if(hash !== lastEventHash) {
     lastEventHash = hash;
     refreshCurrentTab();
+  }
+
+  // Also check for pending members and notify owner
+  const users = getUsers();
+  const pending = Object.values(users).filter(u => u.gardenId === currentUser.gardenId && u.pending);
+  const pendingHash = pending.map(u=>u.username).join(',');
+  if(pendingHash !== lastPendingHash) {
+    lastPendingHash = pendingHash;
+    if(pending.length > 0) {
+      const activeTab = document.querySelector('.tab-content.active');
+      if(activeTab?.id === 'tab-profile') renderPeople();
+    }
   }
 }
 
@@ -2882,7 +2895,8 @@ function renderPeople() {
     notice.style.cssText = 'background:var(--sage-pale);border:1px solid var(--sage-light);border-radius:var(--r);padding:14px 16px;margin-top:12px;text-align:center;';
     notice.innerHTML = `
       <div style="font-size:0.85rem;color:var(--moss);font-weight:500;margin-bottom:4px;">⏳ Waiting for approval</div>
-      <div style="font-size:0.78rem;color:var(--ink-light);line-height:1.4;">The garden owner will see your request in their Profile tab and can approve or deny it.</div>
+      <div style="font-size:0.78rem;color:var(--ink-light);line-height:1.4;margin-bottom:10px;">Send the owner your approval link so they can add you to the garden.</div>
+      <button onclick="showApprovalModal(currentUser)" style="background:var(--moss);color:#fff;border:none;border-radius:var(--r-sm);padding:8px 16px;font-size:0.8rem;font-weight:500;cursor:pointer;width:100%;">📤 Get approval link to send owner</button>
     `;
     list.appendChild(notice);
   }
@@ -3095,6 +3109,76 @@ function joinByCodeOrLink() {
 
 function showNotifInfo() { showToast('Reminders shown in the bell icon 🔔'); }
 function showAbout() { showToast('Roam. v1.0 — grow your shared garden 🌿'); }
+
+// ── Cross-device approval via URL ─────────────────────────────
+// Joiner sends this URL to the owner. Owner opens it → request appears in their app.
+function makeApprovalUrl(user) {
+  const base = (location.origin && location.origin !== 'null' && !location.origin.includes('srcdoc'))
+    ? location.origin + location.pathname
+    : location.href.split('?')[0];
+  const payload = btoa(encodeURIComponent(JSON.stringify({
+    v: 1,
+    username: user.username,
+    name: user.name,
+    color: user.color,
+    gardenId: user.gardenId,
+    joinedAt: user.joinedAt
+  })));
+  return base + '?approve=' + payload;
+}
+
+function showApprovalModal(user) {
+  const url = makeApprovalUrl(user);
+  // Remove any existing approval modal
+  document.getElementById('approval-modal-overlay')?.remove();
+
+  const overlay = document.createElement('div');
+  overlay.id = 'approval-modal-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(28,28,26,0.6);z-index:600;display:flex;align-items:flex-end;';
+  overlay.innerHTML = `
+    <div style="background:var(--cream);border-radius:20px 20px 0 0;padding:24px 20px max(40px,calc(env(safe-area-inset-bottom)+24px));width:100%;max-height:80dvh;overflow-y:auto;">
+      <div style="width:36px;height:4px;background:var(--border);border-radius:4px;margin:0 auto 20px;"></div>
+      <div style="font-family:var(--font-display);font-size:1.3rem;color:var(--moss);margin-bottom:6px;">Almost there! 🌿</div>
+      <div style="font-size:0.85rem;color:var(--ink-light);line-height:1.5;margin-bottom:20px;">
+        Send the <strong>approval link</strong> to the garden owner. When they open it, your request appears in their app and they can approve you.
+      </div>
+      <button onclick="
+        if(navigator.share){
+          navigator.share({title:'Approve my Roam. request',text:'Tap to approve my join request',url:'${url.replace(/'/g,"\\'")}' })
+        } else {
+          navigator.clipboard.writeText('${url.replace(/'/g,"\\'")}').then(()=>showToast('Approval link copied!')).catch(()=>{});
+        }
+      " class="btn btn-primary btn-full" style="margin-bottom:10px;">📤 Share approval link with owner</button>
+      <button onclick="navigator.clipboard.writeText('${url.replace(/'/g,"\\'")}').then(()=>showToast('Copied!')).catch(()=>{})" class="btn btn-secondary btn-full" style="margin-bottom:10px;">📋 Copy approval link</button>
+      <button onclick="document.getElementById('approval-modal-overlay').remove()" class="btn btn-ghost btn-full">I'll do this later</button>
+      <div style="font-size:0.75rem;color:var(--ink-muted);margin-top:14px;text-align:center;line-height:1.4;">You can always find this link in your Profile tab → Waiting for approval</div>
+    </div>`;
+  document.body.appendChild(overlay);
+}
+
+function handleApprovalLink(payload) {
+  try {
+    const data = JSON.parse(decodeURIComponent(atob(payload)));
+    if(!data.username || !data.gardenId) return false;
+    const users = getUsers();
+    // Write the pending user into this device's localStorage
+    if(!users[data.username]) {
+      users[data.username] = {
+        username: data.username,
+        name: data.name,
+        color: data.color || '#7A9E7E',
+        gardenId: data.gardenId,
+        joinedAt: data.joinedAt || Date.now(),
+        password: '',
+        pending: true,
+        isOwner: false
+      };
+      saveUsers(users);
+    }
+    window.history.replaceState({}, '', window.location.pathname);
+    return true;
+  } catch(e) { return false; }
+}
 // ═══════════════════════════════════════
 function openModal(id) {
   const el = document.getElementById(id);
@@ -3137,6 +3221,7 @@ function boot() {
   const params = new URLSearchParams(window.location.search);
   const inviteGarden = params.get('garden');
   const inviteCode = params.get('code');
+  const approvePayload = params.get('approve');
 
   const session = DB.get('session');
   const savedUser = getCurrentUser();
@@ -3150,6 +3235,28 @@ function boot() {
   } else if(savedUser) {
     user = savedUser;
     if(user.username) { users[user.username] = user; saveUsers(users); }
+  }
+
+  // Handle approval link — owner opens this to see the join request
+  if(approvePayload) {
+    const ok = handleApprovalLink(approvePayload);
+    if(user) {
+      currentUser = user;
+      setCurrentUser(user);
+      DB.set('session', { username: user.username, token: DB.get('session')?.token || Date.now().toString(36) });
+      loadApp();
+      if(ok) {
+        setTimeout(() => {
+          switchTab('profile', document.querySelector('[data-tab="profile"]'));
+          showToast('Join request received — check your garden party 🌿');
+        }, 500);
+      }
+      return;
+    } else {
+      showAuth('login');
+      if(ok) setTimeout(() => showToast('Request saved — sign in to approve it 🌿'), 300);
+      return;
+    }
   }
 
   if(user) {
