@@ -3130,7 +3130,6 @@ function boot() {
   const params = new URLSearchParams(window.location.search);
   const inviteGarden = params.get('garden');
   const inviteCode = params.get('code');
-  const joinReq = params.get('joinreq');
 
   const session = DB.get('session');
   const savedUser = getCurrentUser();
