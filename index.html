@@ -916,15 +916,87 @@ const DB = {
   del(k) { localStorage.removeItem('bloom_'+k) }
 };
 
-// Multi-user simulation (all stored locally, keyed by gardenId)
+// ── Server API base URL ───────────────────────────────────────
+const API = (() => {
+  const origin = (location.origin && location.origin !== 'null' && !location.origin.includes('srcdoc'))
+    ? location.origin : '';
+  return origin;
+})();
+
+async function apiFetch(path, opts = {}) {
+  if(!API) return null;
+  try {
+    const res = await fetch(API + path, {
+      headers: { 'Content-Type': 'application/json' },
+      ...opts
+    });
+    if(!res.ok) return null;
+    return await res.json();
+  } catch(_) { return null; }
+}
+
+// ── Users — server is source of truth, localStorage is cache ──
 function getUsers() { return DB.get('users') || {} }
-function saveUsers(u) { DB.set('users', u) }
+
+function saveUsers(u) {
+  DB.set('users', u);
+}
+
+// Push a single user to the server
+async function pushUserToServer(user) {
+  await apiFetch('/api/user', {
+    method: 'POST',
+    body: JSON.stringify({
+      username: user.username,
+      passwordHash: user.password,
+      name: user.name,
+      color: user.color,
+      gardenId: user.gardenId,
+      joinedAt: user.joinedAt,
+      pending: user.pending,
+      isOwner: user.isOwner
+    })
+  });
+}
+
+// Pull all users for a garden from server and merge into local store
+async function pullGardenUsers(gardenId) {
+  const serverUsers = await apiFetch('/api/garden/' + gardenId + '/users');
+  if(!serverUsers || !Array.isArray(serverUsers)) return;
+  const local = getUsers();
+  let changed = false;
+  for(const u of serverUsers) {
+    const existing = local[u.username];
+    // Merge: keep local password, update everything else from server
+    local[u.username] = { ...u, password: existing?.password || '' };
+    changed = true;
+  }
+  if(changed) DB.set('users', local);
+}
+
 function getCurrentUser() { return DB.get('currentUser') }
 function setCurrentUser(u) { DB.set('currentUser', u) }
 
-// Events are stored per gardenId
+// ── Events — server is source of truth ───────────────────────
 function getEvents(gardenId) { return DB.get('events_'+gardenId) || [] }
-function saveEvents(gardenId, evs) { DB.set('events_'+gardenId, evs) }
+
+function saveEvents(gardenId, evs) {
+  DB.set('events_'+gardenId, evs);
+  // Push to server in background
+  apiFetch('/api/garden/' + gardenId + '/events', {
+    method: 'PUT',
+    body: JSON.stringify(evs)
+  });
+}
+
+async function pullEvents(gardenId) {
+  const evs = await apiFetch('/api/garden/' + gardenId + '/events');
+  if(evs && Array.isArray(evs)) {
+    DB.set('events_'+gardenId, evs);
+    return evs;
+  }
+  return getEvents(gardenId);
+}
 
 let currentUser = null;
 let gardenPeriod = 'week';
@@ -1048,6 +1120,7 @@ function doSignup() {
   const user = { name, username, password: hashPass(password), gardenId, joinedAt: Date.now(), color: randomColor(), isOwner: !isPending, pending: isPending };
   users[username] = user;
   saveUsers(users);
+  pushUserToServer(user); // sync to server
   DB.set('session', { username, token: Date.now().toString(36) });
   setCurrentUser(user);
   currentUser = user;
@@ -1055,7 +1128,6 @@ function doSignup() {
   if(isPending) {
     showToast('Account created! 🌿');
     loadApp();
-    // Show approval link immediately after app loads
     setTimeout(() => showApprovalModal(user), 600);
   } else {
     showToast('Welcome to Roam., '+name+' 🌱');
@@ -1083,6 +1155,7 @@ function doLogin() {
   DB.set('session', { username, token: Date.now().toString(36) });
   setCurrentUser(user);
   currentUser = user;
+  pushUserToServer(user);
   loadApp();
 }
 
@@ -1104,7 +1177,7 @@ function randomColor() {
 // ═══════════════════════════════════════
 // APP INIT
 // ═══════════════════════════════════════
-function loadApp() {
+async function loadApp() {
   showScreen('app');
   renderWeek();
   renderCalendar();
@@ -1112,11 +1185,22 @@ function loadApp() {
   renderPeople();
   renderProfile();
   startLiveUpdates();
-  // Handle invite param
-  const params = new URLSearchParams(window.location.search);
-  if(params.get('garden')) {
-    window.history.replaceState({}, '', window.location.pathname);
+
+  // Pull fresh data from server in background
+  if(currentUser) {
+    const gardenId = currentUser.gardenId;
+    // Pull events
+    const evs = await pullEvents(gardenId);
+    if(evs) { renderWeek(); renderCalendar(); renderGarden(); }
+    // Pull users (members + pending requests)
+    await pullGardenUsers(gardenId);
+    renderPeople();
+    // Push current user to server (ensures they're registered)
+    pushUserToServer(currentUser);
   }
+
+  const params = new URLSearchParams(window.location.search);
+  if(params.get('garden')) window.history.replaceState({}, '', window.location.pathname);
 }
 
 // ── Live updates ──────────────────────────────────────────────
@@ -1141,8 +1225,12 @@ function startLiveUpdates() {
   window.addEventListener('pageshow', refreshCurrentTab);
 }
 
+let serverPollCount = 0;
+
 function checkForUpdates() {
   if(!currentUser) return;
+
+  // Local event hash check (fast)
   const events = getEvents(currentUser.gardenId);
   const hash = JSON.stringify(events.map(e => e.id + e.completed + (e.completedAt||'')));
   if(hash !== lastEventHash) {
@@ -1150,16 +1238,31 @@ function checkForUpdates() {
     refreshCurrentTab();
   }
 
-  // Also check for pending members and notify owner
-  const users = getUsers();
-  const pending = Object.values(users).filter(u => u.gardenId === currentUser.gardenId && u.pending);
-  const pendingHash = pending.map(u=>u.username).join(',');
-  if(pendingHash !== lastPendingHash) {
-    lastPendingHash = pendingHash;
-    if(pending.length > 0) {
-      const activeTab = document.querySelector('.tab-content.active');
-      if(activeTab?.id === 'tab-profile') renderPeople();
-    }
+  // Poll server every ~6 seconds (every 3rd tick)
+  serverPollCount++;
+  if(serverPollCount % 3 === 0) {
+    pullGardenUsers(currentUser.gardenId).then(() => {
+      const users = getUsers();
+      const pending = Object.values(users).filter(u => u.gardenId === currentUser.gardenId && u.pending);
+      const pendingHash = pending.map(u=>u.username).join(',');
+      if(pendingHash !== lastPendingHash) {
+        lastPendingHash = pendingHash;
+        if(pending.length > 0) {
+          const activeTab = document.querySelector('.tab-content.active');
+          if(activeTab?.id === 'tab-profile') renderPeople();
+          showToast(`${pending[0].name} wants to join your garden — check Profile 🌿`);
+        }
+      }
+    });
+
+    pullEvents(currentUser.gardenId).then(evs => {
+      if(!evs) return;
+      const newHash = JSON.stringify(evs.map(e => e.id + e.completed + (e.completedAt||'')));
+      if(newHash !== lastEventHash) {
+        lastEventHash = newHash;
+        refreshCurrentTab();
+      }
+    });
   }
 }
 
@@ -2942,6 +3045,10 @@ function approveMember(username) {
   if(users[username]) {
     users[username].pending = false;
     saveUsers(users);
+    apiFetch('/api/garden/' + currentUser.gardenId + '/approve', {
+      method: 'POST', body: JSON.stringify({ username })
+    });
+    pushUserToServer(users[username]);
     showToast(users[username].name + ' has joined your garden! 🌿');
     renderPeople();
   }
@@ -2950,8 +3057,10 @@ function approveMember(username) {
 function denyMember(username) {
   const users = getUsers();
   if(users[username]) {
+    const gid = users[username].gardenId;
     delete users[username];
     saveUsers(users);
+    apiFetch('/api/garden/' + gid + '/user/' + username, { method: 'DELETE' });
     showToast('Request declined');
     renderPeople();
   }
@@ -3163,7 +3272,7 @@ function handleApprovalLink(payload) {
     const users = getUsers();
     // Write the pending user into this device's localStorage
     if(!users[data.username]) {
-      users[data.username] = {
+    const newUser = {
         username: data.username,
         name: data.name,
         color: data.color || '#7A9E7E',
@@ -3173,7 +3282,9 @@ function handleApprovalLink(payload) {
         pending: true,
         isOwner: false
       };
+      users[data.username] = newUser;
       saveUsers(users);
+      pushUserToServer(newUser);
     }
     window.history.replaceState({}, '', window.location.pathname);
     return true;
