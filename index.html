@@ -3076,17 +3076,16 @@ function renderPeople() {
   const inviteBox = document.getElementById('invite-box');
   const joinGardenBox = document.getElementById('join-garden-box');
 
+  // Always show the join box — anyone can join a different garden
+  if(joinGardenBox) joinGardenBox.style.display = '';
+
   // Only the owner can invite more people
   if(!isOwner || members.length >= 4) {
     if(inviteBox) inviteBox.style.display = 'none';
-    // Non-owners still see the join box (in case they want to switch gardens)
-    if(joinGardenBox && !isOwner) joinGardenBox.style.display = '';
     return;
   }
 
   if(inviteBox) inviteBox.style.display = '';
-  // Owner doesn't need the "join a friend's garden" box
-  if(joinGardenBox) joinGardenBox.style.display = 'none';
 
   // Join code — deterministic from gardenId, same on every device
   const joinCode = gardenCodeFromId(gardenId);
