@@ -3023,7 +3023,13 @@ function renderPeople() {
     list.appendChild(notice);
   }
 
-  const inviteBox = document.getElementById('invite-box');
+  // Leave garden option for non-owners
+  if(!isOwner && !currentUser.pending) {
+    const leaveDiv = document.createElement('div');
+    leaveDiv.style.cssText = 'margin-top:12px;';
+    leaveDiv.innerHTML = `<button onclick="leaveGarden()" class="btn btn-danger btn-full" style="font-size:0.85rem;">Leave this garden</button>`;
+    list.appendChild(leaveDiv);
+  }
   const joinGardenBox = document.getElementById('join-garden-box');
 
   // Only the owner can invite more people
@@ -3256,6 +3262,26 @@ async function joinByCodeOrLink() {
   showToast('Join request sent! The owner will see it shortly 🌿');
   renderPeople();
   renderWeek();
+}
+
+function leaveGarden() {
+  if(!confirm('Leave this garden? You\'ll lose access to the shared calendar and events.')) return;
+  const users = getUsers();
+  const gid = currentUser.gardenId;
+  delete users[currentUser.username];
+  saveUsers(users);
+  apiFetch('/api/garden/' + gid + '/user/' + currentUser.username, { method: 'DELETE' });
+  // Create a new solo garden for them
+  const newGardenId = 'g_' + Math.random().toString(36).substr(2,9);
+  currentUser.gardenId = newGardenId;
+  currentUser.isOwner = true;
+  currentUser.pending = false;
+  users[currentUser.username] = currentUser;
+  saveUsers(users);
+  setCurrentUser(currentUser);
+  pushUserToServer(currentUser);
+  showToast('You\'ve left the garden 🌿');
+  renderWeek(); renderCalendar(); renderGarden(); renderPeople(); renderProfile();
 }
 
 function removeMember(username) {
