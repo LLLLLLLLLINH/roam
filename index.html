@@ -3053,14 +3053,6 @@ function loadDemoGarden() {
   renderGarden();
 }
 
-</div>
-      <button onclick="navigator.clipboard.writeText('${approvalUrl.replace(/'/g,"\\'")}').then(()=>showToast('Approval link copied!')).catch(()=>{})" class="btn btn-primary btn-full" style="margin-bottom:8px;">📋 Copy approval link</button>
-      ${navigator.share ? `<button onclick="navigator.share({title:'Roam. join request',text:'Open this to approve my join request',url:'${approvalUrl.replace(/'/g,"\\'")}'})" class="btn btn-secondary btn-full" style="margin-bottom:8px;">Share approval link</button>` : ''}
-      <button onclick="this.closest('div').parentElement.remove()" class="btn btn-ghost btn-full">Done</button>
-    </div>`;
-  document.body.appendChild(modal);
-}
-
 function joinByCode() {
   const code = (document.getElementById('profile-join-code')?.value || '').trim().toUpperCase();
   if(!code || code.length < 4) { showToast('Enter a valid join code'); return; }
