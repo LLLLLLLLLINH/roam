@@ -916,17 +916,34 @@ const DB = {
   del(k) { localStorage.removeItem('bloom_'+k) }
 };
 
+// ── Server API URL ────────────────────────────────────────────
+// Points to the Render Web Service (separate from the static site)
+// UPDATE THIS after creating your Web Service on Render:
+const API_URL = https://roam-4f19.onrender.com; // e.g. https://roam-api.onrender.com
+
 // ── Server API base URL ───────────────────────────────────────
 const API = (() => {
+  // If API_URL is set and valid, use it. Otherwise fall back to same origin.
+  if(API_URL && API_URL.startsWith('https://')) return API_URL;
   const origin = (location.origin && location.origin !== 'null' && !location.origin.includes('srcdoc'))
     ? location.origin : '';
   return origin;
 })();
 
-async function apiFetch(path, opts = {}) {
-  if(!API) return null;
+// Test if API is available, update if needed
+let apiBase = API;
+(async () => {
   try {
-    const res = await fetch(API + path, {
+    const r = await fetch(API + '/api/garden/test/users', { method: 'GET' });
+    if(!r.ok) apiBase = '';
+  } catch(_) { apiBase = ''; }
+})();
+
+async function apiFetch(path, opts = {}) {
+  const base = apiBase || API;
+  if(!base || base.includes('srcdoc')) return null;
+  try {
+    const res = await fetch(base + path, {
       headers: { 'Content-Type': 'application/json' },
       ...opts
     });
