@@ -979,15 +979,55 @@ async function pushUserToServer(user) {
 async function pullGardenUsers(gardenId) {
   const serverUsers = await apiFetch('/api/garden/' + gardenId + '/users');
   if(!serverUsers || !Array.isArray(serverUsers)) return;
+
   const local = getUsers();
-  let changed = false;
+
+  // Check if current user has been removed from this garden by the owner
+  const stillMember = serverUsers.some(u => u.username === currentUser.username);
+  if(!stillMember && currentUser.gardenId === gardenId) {
+    // We've been removed — move to a solo garden
+    handleRemovedFromGarden();
+    return;
+  }
+
+  // Merge server users into local store
   for(const u of serverUsers) {
     const existing = local[u.username];
-    // Merge: keep local password, update everything else from server
     local[u.username] = { ...u, password: existing?.password || '' };
-    changed = true;
   }
-  if(changed) DB.set('users', local);
+  DB.set('users', local);
+
+  // Also update currentUser's pending/approved status from server
+  const serverSelf = serverUsers.find(u => u.username === currentUser.username);
+  if(serverSelf && serverSelf.pending !== currentUser.pending) {
+    currentUser.pending = serverSelf.pending;
+    setCurrentUser(currentUser);
+    const users = getUsers();
+    users[currentUser.username] = { ...users[currentUser.username], pending: serverSelf.pending };
+    saveUsers(users);
+    // If just got approved, refresh the whole app
+    if(!serverSelf.pending) {
+      showToast('You\'ve been approved! Welcome to the garden 🌿');
+      renderWeek(); renderCalendar(); renderGarden();
+    }
+  }
+}
+
+function handleRemovedFromGarden() {
+  // Owner removed us — create a new solo garden
+  const newGardenId = 'g_' + Math.random().toString(36).substr(2, 9);
+  currentUser.gardenId = newGardenId;
+  currentUser.isOwner = true;
+  currentUser.pending = false;
+  const users = getUsers();
+  users[currentUser.username] = currentUser;
+  saveUsers(users);
+  setCurrentUser(currentUser);
+  pushUserToServer(currentUser);
+  showToast('You\'ve been removed from the garden');
+  // Full re-render with new empty garden
+  lastEventHash = '';
+  renderWeek(); renderCalendar(); renderGarden(); renderPeople(); renderProfile();
 }
 
 function getCurrentUser() { return DB.get('currentUser') }
@@ -1258,6 +1298,7 @@ function checkForUpdates() {
   // Poll server every ~6 seconds (every 3rd tick)
   serverPollCount++;
   if(serverPollCount % 3 === 0) {
+    // Always check membership status — catches removals in real-time
     pullGardenUsers(currentUser.gardenId).then(() => {
       const users = getUsers();
       const pending = Object.values(users).filter(u => u.gardenId === currentUser.gardenId && u.pending);
