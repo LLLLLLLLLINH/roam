@@ -2970,15 +2970,18 @@ function renderPeople() {
   sorted.forEach(m => {
     const attended = events.filter(e => e.completed && e.addedBy === m.username).length;
     const col = m.color || '#7A9E7E';
+    const isMe = m.username === currentUser.username;
+    const isThisOwner = m.username === ownerUsername;
     const div = document.createElement('div');
     div.className = 'garden-member';
     div.innerHTML = `
       <div class="member-avatar" style="background:${col}22;border-color:${col}40;color:${col};">${m.name[0].toUpperCase()}</div>
       <div class="member-info">
-        <div class="member-name">${esc(m.name)}${m.username===ownerUsername?'<span style="font-size:0.7rem;background:var(--sage-pale);color:var(--moss);padding:1px 6px;border-radius:10px;margin-left:6px;font-weight:500;">Owner</span>':''}</div>
+        <div class="member-name">${esc(m.name)}${isThisOwner?'<span style="font-size:0.7rem;background:var(--sage-pale);color:var(--moss);padding:1px 6px;border-radius:10px;margin-left:6px;font-weight:500;">Owner</span>':''}</div>
         <div class="member-stats">@${esc(m.username)} · ${attended} attended</div>
       </div>
-      ${m.username===currentUser.username?'<span class="member-badge">You</span>':''}
+      ${isMe ? '<span class="member-badge">You</span>' : ''}
+      ${isOwner && !isMe ? `<button onclick="removeMember('${m.username}')" style="background:transparent;color:var(--ink-muted);border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-size:0.75rem;cursor:pointer;flex-shrink:0;margin-left:4px;" title="Remove from garden">✕</button>` : ''}
     `;
     list.appendChild(div);
   });
@@ -3253,6 +3256,19 @@ async function joinByCodeOrLink() {
   showToast('Join request sent! The owner will see it shortly 🌿');
   renderPeople();
   renderWeek();
+}
+
+function removeMember(username) {
+  if(!confirm('Remove this person from your garden? They will lose access to the shared calendar.')) return;
+  const users = getUsers();
+  if(users[username]) {
+    const gid = users[username].gardenId;
+    delete users[username];
+    saveUsers(users);
+    apiFetch('/api/garden/' + gid + '/user/' + username, { method: 'DELETE' });
+    showToast('Member removed from garden');
+    renderPeople();
+  }
 }
 
 function showNotifInfo() { showToast('Reminders shown in the bell icon 🔔'); }
