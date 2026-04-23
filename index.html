@@ -616,13 +616,13 @@ html { font-size: 14px; }
       </div>
       <button class="btn btn-primary btn-full" style="margin-top: 8px;" onclick="doSignup()">Plant my garden 🌱</button>
       <div class="auth-switch">Already have an account? <a onclick="showAuth('login')">Sign in</a></div>
-      <!-- Join code option -->
+      <!-- Join code / invite link option -->
       <div style="margin-top:20px;padding-top:20px;border-top:1px solid var(--border);">
-        <div style="font-size:0.8rem;color:var(--ink-muted);margin-bottom:10px;text-align:center;">Have a friend's join code?</div>
+        <div style="font-size:0.8rem;color:var(--ink-muted);margin-bottom:10px;text-align:center;">Joining a friend's garden?</div>
         <div style="display:flex;gap:8px;">
-          <input class="form-input" id="join-code-input" placeholder="Enter 6-digit code" maxlength="6" style="text-transform:uppercase;letter-spacing:0.1em;font-weight:600;text-align:center;flex:1;">
+          <input class="form-input" id="join-code-input" placeholder="Paste invite link or enter code" maxlength="300" style="flex:1;font-size:0.85rem;">
         </div>
-        <div style="font-size:0.75rem;color:var(--ink-muted);margin-top:6px;text-align:center;">Fill your details above and enter the code to join their garden</div>
+        <div style="font-size:0.75rem;color:var(--ink-muted);margin-top:6px;text-align:center;">Fill your details above, then paste your friend's invite link here</div>
       </div>
     </div>
 
@@ -737,32 +737,34 @@ html { font-size: 14px; }
     <div style="font-size:0.8rem;color:var(--ink-muted);margin-bottom:12px;">Up to 4 gardeners share this calendar</div>
     <div id="members-list"></div>
 
-    <!-- Join another garden by code -->
+    <!-- Join another garden -->
     <div id="join-garden-box" style="background:#fff;border:1.5px solid var(--border);border-radius:var(--r);padding:16px;margin-top:12px;margin-bottom:4px;">
       <div style="font-size:0.85rem;font-weight:500;color:var(--ink);margin-bottom:4px;">Join a friend's garden</div>
-      <div style="font-size:0.78rem;color:var(--ink-muted);margin-bottom:12px;">Enter the 6-digit code from your friend's profile</div>
+      <div style="font-size:0.78rem;color:var(--ink-muted);margin-bottom:12px;">Paste your friend's invite link, or enter their garden code</div>
       <div style="display:flex;gap:8px;">
-        <input id="profile-join-code" class="form-input" placeholder="e.g. K7X2MQ" maxlength="6" style="flex:1;text-transform:uppercase;letter-spacing:0.12em;font-weight:600;text-align:center;font-size:1rem;">
-        <button onclick="joinByCode()" class="btn btn-primary" style="flex-shrink:0;padding:0 18px;">Join</button>
+        <input id="profile-join-code" class="form-input" placeholder="Paste link or enter code" maxlength="300" style="flex:1;font-size:0.85rem;">
+        <button onclick="joinByCodeOrLink()" class="btn btn-primary" style="flex-shrink:0;padding:0 18px;">Join</button>
       </div>
     </div>
 
     <div class="invite-box" id="invite-box">
       <div class="invite-title">Invite a friend 🌿</div>
-      <div class="invite-sub">Share your link, QR code, or 6-digit code. They sign up and you approve them.</div>
+      <div class="invite-sub">Share this link — they open it, sign up, and you approve them.</div>
 
-      <!-- 6-digit join code — big and easy to share verbally -->
-      <div style="background:#fff;border:1.5px solid var(--sage-light);border-radius:var(--r);padding:14px;margin-bottom:12px;text-align:center;">
-        <div style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--ink-muted);margin-bottom:6px;">Join code</div>
-        <div id="join-code-display" style="font-family:var(--font-display);font-size:2rem;letter-spacing:0.2em;color:var(--moss);font-weight:500;"></div>
-        <div style="font-size:0.72rem;color:var(--ink-muted);margin-top:4px;">They enter this on the sign-up screen</div>
+      <!-- Share link is the primary action -->
+      <div style="display:flex;gap:8px;justify-content:center;margin-bottom:14px;">
+        <button class="btn btn-primary" onclick="shareInviteLink()" style="flex:1;">Share invite link</button>
+        <button class="btn btn-secondary btn-sm" onclick="copyInviteLink()" style="flex-shrink:0;">Copy</button>
       </div>
 
-      <div class="invite-link" id="invite-link-text" style="font-size:0.7rem;word-break:break-all;"></div>
-      <div id="qr-container" style="margin:12px auto;"></div>
-      <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
-        <button class="btn btn-sm btn-secondary" onclick="copyInviteLink()">Copy link</button>
-        <button class="btn btn-sm btn-primary" onclick="shareInviteLink()">Share</button>
+      <div class="invite-link" id="invite-link-text" style="font-size:0.7rem;word-break:break-all;margin-bottom:12px;"></div>
+      <div id="qr-container" style="margin:8px auto 12px;"></div>
+
+      <!-- 6-digit code — secondary, same device only -->
+      <div style="background:#fff;border:1px solid var(--border);border-radius:var(--r-sm);padding:10px 12px;margin-top:4px;">
+        <div style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--ink-muted);margin-bottom:4px;">Garden code <span style="text-transform:none;letter-spacing:0;font-weight:400;">(same app only)</span></div>
+        <div id="join-code-display" style="font-family:var(--font-display);font-size:1.6rem;letter-spacing:0.18em;color:var(--moss);font-weight:500;"></div>
+        <div style="font-size:0.7rem;color:var(--ink-muted);margin-top:3px;line-height:1.4;">Only works if your friend uses the same browser/app. For cross-device sharing, use the link above.</div>
       </div>
     </div>
 
@@ -1016,34 +1018,31 @@ function doSignup() {
   const params = new URLSearchParams(window.location.search);
   const inviteGarden = params.get('garden');
   const urlCode = params.get('code');
-  const inputCode = (document.getElementById('join-code-input')?.value || '').trim().toUpperCase();
-  const inviteCode = inputCode || urlCode;
+  const rawInput = (document.getElementById('join-code-input')?.value || '').trim();
 
   let gardenId, isPending = false;
 
   if(inviteGarden) {
-    // Joining via invite link - garden ID encoded directly in URL
     gardenId = inviteGarden;
     isPending = true;
-  } else if(inviteCode) {
-    // Find the garden whose deterministic code matches
-    const users = getUsers();
-    const allGardenIds = [...new Set(Object.values(users).map(u => u.gardenId).filter(Boolean))];
-    const matchedGarden = allGardenIds.find(gid => gardenCodeFromId(gid) === inviteCode);
-    if(matchedGarden) {
-      gardenId = matchedGarden;
-      isPending = true;
+  } else if(rawInput) {
+    // Could be a full URL or a 6-digit code
+    if(rawInput.startsWith('http')) {
+      try {
+        const u = new URL(rawInput);
+        const gid = u.searchParams.get('garden');
+        if(gid) { gardenId = gid; isPending = true; }
+      } catch(_) {}
+      if(!gardenId) { showToast('Invalid invite link — check with your friend'); return; }
     } else {
-      showToast('Invalid join code — check with your friend');
-      return;
+      const code = rawInput.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,6);
+      const allGardenIds = [...new Set(Object.values(users).map(u => u.gardenId).filter(Boolean))];
+      const matched = allGardenIds.find(gid => gardenCodeFromId(gid) === code);
+      if(matched) { gardenId = matched; isPending = true; }
+      else { showToast('Code not found — paste the full invite link instead'); return; }
     }
   } else {
     gardenId = 'g_' + Math.random().toString(36).substr(2,9);
-    // Generate a 6-digit join code for this garden
-    const code = Math.random().toString(36).substr(2,6).toUpperCase();
-    const codeMap = DB.get('garden_codes') || {};
-    codeMap[gardenId] = code;
-    DB.set('garden_codes', codeMap);
   }
 
   const user = { name, username, password: hashPass(password), gardenId, joinedAt: Date.now(), color: randomColor(), isOwner: !isPending, pending: isPending };
@@ -3053,24 +3052,40 @@ function loadDemoGarden() {
   renderGarden();
 }
 
-function joinByCode() {
-  const code = (document.getElementById('profile-join-code')?.value || '').trim().toUpperCase();
-  if(!code || code.length < 4) { showToast('Enter a valid join code'); return; }
+function joinByCode() { joinByCodeOrLink(); } // legacy alias
+function joinByCodeOrLink() {
+  const raw = (document.getElementById('profile-join-code')?.value || '').trim();
+  if(!raw) { showToast('Enter a code or paste an invite link'); return; }
 
-  // Find garden whose deterministic code matches
+  let gardenId = null;
+
+  // If it's a URL with ?garden= param — works cross-device
+  if(raw.startsWith('http')) {
+    try {
+      const u = new URL(raw);
+      gardenId = u.searchParams.get('garden');
+    } catch(_) {}
+    if(!gardenId) { showToast('Invalid invite link'); return; }
+  } else {
+    // 6-digit code — only works if this device has seen that garden before
+    const code = raw.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,6);
+    const users = getUsers();
+    const allGardenIds = [...new Set(Object.values(users).map(u => u.gardenId).filter(Boolean))];
+    gardenId = allGardenIds.find(gid => gardenCodeFromId(gid) === code) || null;
+    if(!gardenId) {
+      showToast('Code not found on this device — ask your friend to share the invite link instead');
+      return;
+    }
+  }
+
+  if(gardenId === currentUser.gardenId) { showToast('You\'re already in this garden!'); return; }
+
   const users = getUsers();
-  const allGardenIds = [...new Set(Object.values(users).map(u => u.gardenId).filter(Boolean))];
-  const matchedGarden = allGardenIds.find(gid => gardenCodeFromId(gid) === code);
-
-  if(!matchedGarden) { showToast('Code not found — double-check with your friend'); return; }
-  if(matchedGarden === currentUser.gardenId) { showToast('You\'re already in this garden!'); return; }
-
-  const updatedUsers = getUsers();
-  currentUser.gardenId = matchedGarden;
+  currentUser.gardenId = gardenId;
   currentUser.pending = true;
   currentUser.isOwner = false;
-  updatedUsers[currentUser.username] = currentUser;
-  saveUsers(updatedUsers);
+  users[currentUser.username] = currentUser;
+  saveUsers(users);
   setCurrentUser(currentUser);
   document.getElementById('profile-join-code').value = '';
   showToast('Join request sent! The owner will see it in their Profile tab 🌿');
