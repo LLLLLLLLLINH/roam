@@ -92,6 +92,24 @@ app.put('/api/garden/:gardenId/events', (req, res) => {
   res.json({ ok: true });
 });
 
+// ── API: Look up garden by 6-digit code ───────────────────────
+app.get('/api/lookup-code/:code', (req, res) => {
+  const code = req.params.code.toUpperCase();
+  const data = loadData();
+  // Find all unique gardenIds on the server and check their deterministic codes
+  const gardenIds = [...new Set(Object.values(data.users || {}).map(u => u.gardenId).filter(Boolean))];
+  const match = gardenIds.find(gid => gardenCodeFromId(gid) === code);
+  if(match) return res.json({ gardenId: match });
+  res.status(404).json({ error: 'Code not found' });
+});
+
+// Deterministic code function (mirrors client-side)
+function gardenCodeFromId(gardenId) {
+  let h = 0x811c9dc5;
+  for(let i = 0; i < gardenId.length; i++) { h ^= gardenId.charCodeAt(i); h = (h * 0x01000193) >>> 0; }
+  return h.toString(36).toUpperCase().padStart(6,'0').slice(-6);
+}
+
 // ── API: Login check ──────────────────────────────────────────
 app.post('/api/login', (req, res) => {
   const { username, passwordHash } = req.body;
