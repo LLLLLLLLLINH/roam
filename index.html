@@ -393,14 +393,15 @@ html { font-size: 14px; }
 
 /* xl: 600px+ — tablets, landscape phones, desktop */
 @media (min-width: 600px) {
-  #screen-app { max-width: 540px; margin: 0 auto; }
+  body { background: var(--cream-dark); }
+  #screen-app { max-width: 540px; margin: 0 auto; background: var(--cream); min-height: 100dvh; box-shadow: 0 0 40px rgba(28,28,26,0.1); }
   #screen-auth { max-width: 480px; margin: 0 auto; }
   #screen-onboard { max-width: 480px; margin: 0 auto; }
   .modal { max-width: 500px; margin: 0 auto; border-radius: 20px; }
   .modal-backdrop { align-items: center; }
   .bottom-nav { max-width: 540px; margin: 0 auto; left: 50%; transform: translateX(-50%); width: 100%; position: fixed; }
-  .app-header { max-width: 540px; margin: 0 auto; }
-  .tab-content { padding: 24px 24px 100px; }
+  .app-header { max-width: 540px; margin: 0 auto; left: 50%; transform: translateX(-50%); width: 100%; position: fixed; top: 0; }
+  .tab-content { padding: 24px 24px 100px; padding-top: 80px; }
   html { font-size: 16px; }
 }
 
