@@ -201,19 +201,78 @@ h1,h2,h3 { font-family: var(--font-display); font-weight: 400; }
 .add-fab:active { transform: scale(0.95); }
 
 /* ── GARDEN ── */
-.garden-header { margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; }
+.garden-header { margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; }
 .garden-title { font-family: var(--font-display); font-size: 1.5rem; }
 .period-tabs { display: flex; gap: 4px; background: var(--cream-dark); border-radius: 8px; padding: 3px; }
 .period-tab { padding: 6px 12px; border-radius: 6px; font-size: 0.8rem; cursor: pointer; border: none; background: transparent; color: var(--ink-muted); font-weight: 500; transition: all 0.15s; }
 .period-tab.active { background: #fff; color: var(--moss); box-shadow: 0 1px 3px var(--shadow); }
-.garden-canvas { background: #fff; border: 1.5px solid var(--border); border-radius: var(--r); padding: 16px; margin-bottom: 20px; min-height: 220px; position: relative; overflow: hidden; }
-.garden-ground { position: absolute; bottom: 0; left: 0; right: 0; height: 48px; background: linear-gradient(to top, #c8a96e, #d4b87a); border-radius: 0 0 calc(var(--r) - 2px) calc(var(--r) - 2px); }
-.garden-grass { position: absolute; bottom: 44px; left: 0; right: 0; height: 12px; background: var(--sage); }
-.plant-row { position: absolute; bottom: 40px; left: 0; right: 0; display: flex; align-items: flex-end; justify-content: center; gap: 16px; padding: 0 20px; flex-wrap: wrap; }
-.plant-item { display: flex; flex-direction: column; align-items: center; cursor: pointer; transition: transform 0.15s; }
-.plant-item:hover { transform: scale(1.08); }
-.plant-svg { display: block; }
-.plant-label { font-size: 9px; color: var(--moss-dark); font-weight: 700; margin-top: 2px; text-shadow: 0 1px 0 rgba(255,255,255,0.8); max-width: 56px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; background: rgba(255,255,255,0.75); border-radius: 4px; padding: 1px 3px; }
+
+.garden-canvas {
+  background: linear-gradient(180deg, #e8f5e4 0%, #d4ecd0 40%, #c2e0bc 70%, #a8d4a2 100%);
+  border: 2px solid #9dc498;
+  border-radius: 20px;
+  margin-bottom: 20px;
+  min-height: 260px;
+  position: relative;
+  overflow: visible;
+  padding-top: 16px;
+  padding-bottom: 56px;
+  box-shadow: inset 0 -3px 12px rgba(74,124,89,0.15), 0 2px 12px rgba(74,124,89,0.08);
+}
+/* Sky dots / texture */
+.garden-canvas::before {
+  content: '🌤';
+  position: absolute;
+  top: 10px; right: 16px;
+  font-size: 1.2rem;
+  opacity: 0.5;
+  pointer-events: none;
+}
+.garden-ground {
+  position: absolute; bottom: 0; left: 0; right: 0; height: 56px;
+  background: linear-gradient(to top, #8B5E3C, #a8784f 40%, #c4956a);
+  border-radius: 0 0 18px 18px;
+}
+.garden-grass {
+  position: absolute; bottom: 50px; left: 0; right: 0; height: 16px;
+  background: linear-gradient(to bottom, #5a9e60, #4a8a50);
+  border-radius: 6px 6px 0 0;
+}
+/* Grass tufts using box-shadow on pseudo */
+.garden-grass::after {
+  content: '';
+  position: absolute;
+  top: -6px; left: 0; right: 0; height: 10px;
+  background: radial-gradient(ellipse 6px 8px at 50% 100%, #5a9e60 50%, transparent 51%) repeat-x;
+  background-size: 14px 10px;
+}
+.plant-row {
+  position: absolute;
+  bottom: 58px; left: 0; right: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 12px;
+  padding: 0 16px;
+  flex-wrap: wrap;
+}
+.plant-item { display: flex; flex-direction: column; align-items: center; cursor: pointer; transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1); }
+.plant-item:hover { transform: scale(1.12) translateY(-4px); }
+.plant-svg { display: block; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.15)); }
+.plant-label {
+  font-size: 8px; font-weight: 700;
+  color: var(--moss-dark);
+  margin-top: 3px;
+  max-width: 52px;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  background: rgba(255,255,255,0.88);
+  border-radius: 20px;
+  padding: 1px 5px;
+  border: 1px solid rgba(74,124,89,0.2);
+}
 .garden-stats { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 20px; }
 .stat-card { background: #fff; border: 1px solid var(--border); border-radius: var(--r-sm); padding: 14px 12px; text-align: center; }
 .stat-num { font-family: var(--font-display); font-size: 1.8rem; color: var(--moss); line-height: 1; }
@@ -320,7 +379,7 @@ html { font-size: 14px; }
 .cat-grid { grid-template-columns: repeat(3,1fr); gap: 6px; }
 .cat-item { padding: 8px 4px; font-size: 0.75rem; }
 .cat-emoji { font-size: 1rem; }
-.garden-canvas { min-height: 180px; }
+.garden-canvas { min-height: 300px; }
 .stat-num { font-size: 1.5rem; }
 .garden-stats { gap: 8px; }
 .step-logo { font-size: 2rem; }
@@ -343,7 +402,7 @@ html { font-size: 14px; }
   .modal-title { font-size: 1.3rem; }
   .cat-item { padding: 10px 6px; font-size: 0.78rem; }
   .cat-emoji { font-size: 1.1rem; }
-  .garden-canvas { min-height: 200px; }
+  .garden-canvas { min-height: 260px; }
   .stat-num { font-size: 1.6rem; }
   .step-logo { font-size: 2.2rem; }
   .step-title { font-size: 1.5rem; }
@@ -362,7 +421,7 @@ html { font-size: 14px; }
   .modal { padding: 0 18px 30px; }
   .cat-item { padding: 10px 8px; font-size: 0.8rem; }
   .cat-emoji { font-size: 1.2rem; }
-  .garden-canvas { min-height: 220px; }
+  .garden-canvas { min-height: 280px; }
   .stat-num { font-size: 1.8rem; }
   .step-logo { font-size: 2.4rem; }
   .step-title { font-size: 1.6rem; }
@@ -384,7 +443,7 @@ html { font-size: 14px; }
   .modal-title { font-size: 1.4rem; }
   .cat-grid { gap: 8px; }
   .cat-item { padding: 12px 8px; font-size: 0.82rem; }
-  .garden-canvas { min-height: 240px; }
+  .garden-canvas { min-height: 300px; }
   .stat-num { font-size: 2rem; }
   .garden-stats { gap: 10px; }
   .nav-item { font-size: 10.5px; }
@@ -877,8 +936,8 @@ html { font-size: 14px; }
       <input type="file" id="ev-img-input" accept="image/*" style="position:absolute;left:-9999px;opacity:0;width:1px;height:1px;" onchange="handleImageUpload(this)">
     </div>
 
-    <button class="btn btn-primary btn-full" onclick="saveEvent()" style="position:relative;z-index:1;">Add to calendar 🌱</button>
-    <button class="btn btn-ghost btn-full" style="margin-top:8px;position:relative;z-index:1;" onclick="closeModal('modal-add')">Cancel</button>
+    <button class="btn btn-primary btn-full" id="btn-save-event" style="position:relative;z-index:10;margin-top:4px;">Add to calendar 🌱</button>
+    <button class="btn btn-ghost btn-full" style="margin-top:8px;position:relative;z-index:10;" onclick="closeModal('modal-add')">Cancel</button>
   </div>
 </div>
 
@@ -1786,6 +1845,14 @@ function openAddModal() {
   selectedCat = 'community';
   document.querySelectorAll('.cat-item').forEach(c => c.classList.toggle('selected', c.dataset.cat==='community'));
   openModal('modal-add');
+  // Wire save button with both touch and click to handle iOS camera return
+  const saveBtn = document.getElementById('btn-save-event');
+  if(saveBtn) {
+    saveBtn.onclick = null;
+    saveBtn.ontouchend = null;
+    saveBtn.onclick = (e) => { e.preventDefault(); saveEvent(); };
+    saveBtn.ontouchend = (e) => { e.preventDefault(); saveEvent(); };
+  }
 }
 
 function selectCat(el) {
@@ -1807,13 +1874,28 @@ function handleImageUpload(input) {
     document.getElementById('img-preview').src = currentEventImage;
     document.getElementById('img-preview-wrap').style.display = 'block';
     document.getElementById('img-btn-row').style.display = 'none';
-    // Ensure save button is always tappable after image loads
-    const saveBtn = document.querySelector('#modal-add .btn-primary');
-    if(saveBtn) { saveBtn.style.pointerEvents = 'auto'; saveBtn.style.opacity = '1'; }
+
+    // iOS: after camera closes, force restore touch/pointer events on the whole modal
+    setTimeout(() => {
+      const modal = document.querySelector('#modal-add .modal');
+      if(modal) {
+        modal.style.pointerEvents = 'none';
+        requestAnimationFrame(() => {
+          modal.style.pointerEvents = '';
+          // Re-wire the save button
+          const saveBtn = document.getElementById('btn-save-event');
+          if(saveBtn) {
+            saveBtn.onclick = (e) => { e.preventDefault(); saveEvent(); };
+            saveBtn.ontouchend = (e) => { e.preventDefault(); saveEvent(); };
+            // Scroll save button into view so user can tap it
+            saveBtn.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        });
+      }
+    }, 300);
   };
   reader.onerror = () => { showToast('Could not load image'); input.value = ''; };
   reader.readAsDataURL(file);
-  // Reset input so same file can be re-selected
   setTimeout(() => { input.value = ''; }, 500);
 }
 
@@ -2988,15 +3070,21 @@ function renderGarden() {
   };
 
   if(filtered.length === 0) {
-    plantRow.innerHTML = `<div style="text-align:center;color:var(--moss-dark);font-size:0.88rem;font-weight:700;background:rgba(255,255,255,0.85);border-radius:var(--r);margin:8px;padding:20px 16px;border:1.5px solid rgba(255,255,255,0.9);">🌱 Attend events to grow flowers here</div>`;
+    plantRow.innerHTML = `<div style="text-align:center;color:var(--moss-dark);font-size:0.85rem;font-weight:600;background:rgba(255,255,255,0.75);border-radius:12px;padding:14px 20px;border:1.5px solid rgba(255,255,255,0.9);">🌱 Attend events to grow flowers here</div>`;
   } else {
     filtered.forEach((ev, i) => {
       const plantPool = catPlants[ev.category] || catPlants.other;
       const plantFn = plantPool[i % plantPool.length];
       const color = catColors[ev.category] || '#E8C84A';
-      const size = 28 + Math.min(filtered.length, 8) * 2;
+      // Vary sizes slightly for a natural, non-rigid look
+      const baseSize = Math.min(38, 24 + Math.floor(filtered.length <= 4 ? 10 : filtered.length <= 8 ? 6 : 3));
+      const sizeVariation = [0, 4, -2, 6, -4, 2, 8, -6][i % 8];
+      const size = Math.max(22, Math.min(44, baseSize + sizeVariation));
       const div = document.createElement('div');
       div.className = 'plant-item';
+      // Slight random-ish vertical offset for natural stagger
+      const nudge = [-3, 2, -5, 4, 0, -2, 6, -4][i % 8];
+      div.style.marginBottom = nudge + 'px';
       div.innerHTML = plantFn(size, color) + `<div class="plant-label">${esc(ev.name)}</div>`;
       div.title = ev.name;
       div.onclick = () => openEventDetail(ev.id);
