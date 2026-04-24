@@ -865,21 +865,20 @@ html { font-size: 14px; }
         <button onclick="removeImage()" style="position:absolute;top:6px;right:6px;background:rgba(28,28,26,0.6);color:#fff;border:none;border-radius:50%;width:24px;height:24px;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;">✕</button>
       </div>
       <div id="img-btn-row" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-        <button type="button" onclick="document.getElementById('ev-img-camera').click()" style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:14px 8px;border:1.5px dashed var(--border);border-radius:var(--r-sm);background:#fff;cursor:pointer;font-size:0.8rem;color:var(--ink-light);transition:border-color 0.15s;" onmouseover="this.style.borderColor='var(--sage)'" onmouseout="this.style.borderColor='var(--border)'">
+        <button type="button" onclick="document.getElementById('ev-img-camera').click()" style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:14px 8px;border:1.5px dashed var(--border);border-radius:var(--r-sm);background:#fff;cursor:pointer;font-size:0.8rem;color:var(--ink-light);">
           <span style="font-size:1.4rem;">📸</span>Take photo
         </button>
-        <button type="button" onclick="document.getElementById('ev-img-input').click()" style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:14px 8px;border:1.5px dashed var(--border);border-radius:var(--r-sm);background:#fff;cursor:pointer;font-size:0.8rem;color:var(--ink-light);transition:border-color 0.15s;" onmouseover="this.style.borderColor='var(--sage)'" onmouseout="this.style.borderColor='var(--border)'">
+        <button type="button" onclick="document.getElementById('ev-img-input').click()" style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:14px 8px;border:1.5px dashed var(--border);border-radius:var(--r-sm);background:#fff;cursor:pointer;font-size:0.8rem;color:var(--ink-light);">
           <span style="font-size:1.4rem;">🖼️</span>Choose photo
         </button>
       </div>
-      <!-- camera capture (mobile: opens camera; desktop: file picker) -->
-      <input type="file" id="ev-img-camera" accept="image/*" capture="environment" style="display:none;" onchange="handleImageUpload(this)">
-      <!-- file picker (no capture — shows gallery/files) -->
-      <input type="file" id="ev-img-input" accept="image/*" style="display:none;" onchange="handleImageUpload(this)">
+      <!-- File inputs positioned off-screen, never overlap other elements -->
+      <input type="file" id="ev-img-camera" accept="image/*" capture="environment" style="position:absolute;left:-9999px;opacity:0;width:1px;height:1px;" onchange="handleImageUpload(this)">
+      <input type="file" id="ev-img-input" accept="image/*" style="position:absolute;left:-9999px;opacity:0;width:1px;height:1px;" onchange="handleImageUpload(this)">
     </div>
 
-    <button class="btn btn-primary btn-full" onclick="saveEvent()">Add to calendar 🌱</button>
-    <button class="btn btn-ghost btn-full" style="margin-top:8px;" onclick="closeModal('modal-add')">Cancel</button>
+    <button class="btn btn-primary btn-full" onclick="saveEvent()" style="position:relative;z-index:1;">Add to calendar 🌱</button>
+    <button class="btn btn-ghost btn-full" style="margin-top:8px;position:relative;z-index:1;" onclick="closeModal('modal-add')">Cancel</button>
   </div>
 </div>
 
@@ -2965,7 +2964,7 @@ function renderGarden() {
   };
 
   if(filtered.length === 0) {
-    plantRow.innerHTML = `<div style="text-align:center;padding:40px 0 60px;color:#fff;font-size:0.85rem;opacity:0.7;font-style:italic;text-shadow:0 1px 3px rgba(0,0,0,0.3);">Attend events to grow flowers here</div>`;
+    plantRow.innerHTML = `<div style="text-align:center;color:var(--moss-dark);font-size:0.88rem;font-weight:700;background:rgba(255,255,255,0.85);border-radius:var(--r);margin:8px;padding:20px 16px;border:1.5px solid rgba(255,255,255,0.9);">🌱 Attend events to grow flowers here</div>`;
   } else {
     filtered.forEach((ev, i) => {
       const plantPool = catPlants[ev.category] || catPlants.other;
@@ -3476,20 +3475,46 @@ function openModal(id) {
   el.classList.add('open');
   // Close on backdrop click
   el.onclick = e => { if(e.target === el) closeModal(id); };
+
   // Make handle tappable to close
   const handle = el.querySelector('.modal-handle');
   if(handle) {
     handle.onclick = e => { e.stopPropagation(); closeModal(id); };
-    // Swipe down to close
+  }
+
+  // Swipe down on the modal itself to close
+  const modal = el.querySelector('.modal');
+  if(modal) {
     let startY = 0;
-    handle.addEventListener('touchstart', e => { startY = e.touches[0].clientY; }, { passive: true });
-    handle.addEventListener('touchend', e => {
-      if(e.changedTouches[0].clientY - startY > 40) closeModal(id);
-    }, { passive: true });
+    let startScrollTop = 0;
+    const onTouchStart = e => {
+      startY = e.touches[0].clientY;
+      startScrollTop = modal.scrollTop;
+    };
+    const onTouchEnd = e => {
+      const deltaY = e.changedTouches[0].clientY - startY;
+      // Only close if swiping down AND modal is scrolled to top
+      if(deltaY > 60 && startScrollTop === 0) closeModal(id);
+    };
+    modal.addEventListener('touchstart', onTouchStart, { passive: true });
+    modal.addEventListener('touchend', onTouchEnd, { passive: true });
+    // Store cleanup refs
+    modal._touchStart = onTouchStart;
+    modal._touchEnd = onTouchEnd;
   }
 }
+
 function closeModal(id) {
-  document.getElementById(id).classList.remove('open');
+  const el = document.getElementById(id);
+  el.classList.remove('open');
+  // Cleanup touch listeners
+  const modal = el.querySelector('.modal');
+  if(modal && modal._touchStart) {
+    modal.removeEventListener('touchstart', modal._touchStart);
+    modal.removeEventListener('touchend', modal._touchEnd);
+    delete modal._touchStart;
+    delete modal._touchEnd;
+  }
 }
 
 // ═══════════════════════════════════════
