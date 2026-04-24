@@ -2648,19 +2648,32 @@ function openEventDetail(id) {
 }
 
 function renderEventDetail(ev) {
-  const catEmoji = {community:'🌿',music:'🎵',food:'🍜',art:'🎨',sports:'⚡',other:'✨'};
-  const plantEmoji = ['🌸','🌼','🌺','🌻','🌷','🌱'][Math.floor(Math.random()*6)];
+  const catColors = {community:'#f5c842',music:'#c084d8',food:'#f0823c',art:'#e8729a',sports:'#e84040',other:'#40a8e8'};
+  const catPlants = {
+    community:[sunflowerSVG,daisySVG,peonyBushSVG,lavSVG],
+    music:[lavSVG,roseSVG,peonyBushSVG,tulipSVG],
+    food:[sunflowerSVG,succulentSVG,cactusRoundSVG,daisySVG],
+    art:[monsteraSVG,pothosVineSVG,peonyBushSVG,roseSVG],
+    sports:[fernSVG,tulipSVG,daisySVG,sunflowerSVG],
+    other:[snakePlantSVG,succulentSVG,cactusRoundSVG,monsteraSVG],
+  };
+  const events = getEvents(currentUser.gardenId);
+  const evIdx = events.filter(e=>e.completed).findIndex(e=>e.id===ev.id);
+  const pool = catPlants[ev.category] || catPlants.other;
+  const plantFn = pool[Math.max(0,evIdx) % pool.length];
+  const color = catColors[ev.category] || '#f5c842';
+  const plantSvg = plantFn(36, color);
 
   document.getElementById('event-detail-content').innerHTML = `
     ${ev.image ? `<div style="margin:0 -20px 16px;"><img src="${ev.image}" style="width:calc(100% + 40px);max-height:200px;object-fit:cover;border-radius:var(--r) var(--r) 0 0;" alt="${esc(ev.name)}"></div>` : ''}
     <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:12px;">
       <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0;">
-        <span style="font-size:1.4rem;flex-shrink:0;">${catEmoji[ev.category]||'✨'}</span>
+        <div style="flex-shrink:0;width:36px;display:flex;align-items:flex-end;justify-content:center;">${plantSvg}</div>
         <h2 style="font-family:var(--font-display);font-size:1.3rem;color:var(--ink);line-height:1.2;word-break:break-word;">${esc(ev.name)}</h2>
       </div>
       <button onclick="openEditEvent('${ev.id}')" style="flex-shrink:0;background:var(--cream-dark);border:1px solid var(--border);border-radius:8px;padding:6px 12px;font-size:0.8rem;font-weight:500;color:var(--ink-light);cursor:pointer;">Edit</button>
     </div>
-    ${ev.completed?`<div style="display:inline-flex;align-items:center;gap:6px;background:var(--sage-pale);color:var(--moss);padding:4px 12px;border-radius:20px;font-size:0.8rem;font-weight:500;margin-bottom:12px;">${plantEmoji} Attended!</div>`:''}
+    ${ev.completed?`<div style="display:inline-flex;align-items:center;gap:6px;background:var(--sage-pale);color:var(--moss);padding:4px 12px;border-radius:20px;font-size:0.8rem;font-weight:500;margin-bottom:12px;">Attended!</div>`:''}
     <div style="background:#fff;border:1px solid var(--border);border-radius:var(--r);padding:16px;margin-bottom:16px;">
       ${ev.date?`<div style="display:flex;gap:10px;margin-bottom:10px;align-items:flex-start;"><span style="width:18px;text-align:center;flex-shrink:0;">📅</span><div><div style="font-size:0.7rem;color:var(--ink-muted);text-transform:uppercase;letter-spacing:0.04em;">Date</div><div style="font-weight:500;">${fmtDateFull(ev.date)}${ev.time?' · '+fmtTime(ev.time):''}</div></div></div>`:''}
       ${ev.location?`<div style="display:flex;gap:10px;margin-bottom:10px;align-items:flex-start;"><span style="width:18px;text-align:center;flex-shrink:0;">📍</span><div><div style="font-size:0.7rem;color:var(--ink-muted);text-transform:uppercase;letter-spacing:0.04em;">Location</div><div style="font-weight:500;">${esc(ev.location)}</div></div></div>`:''}
