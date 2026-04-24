@@ -40,7 +40,7 @@
 })();
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,300;0,400;0,500;1,300;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;1,400&family=Nunito:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 <style>
 :root {
@@ -61,8 +61,8 @@
   --sunflower: #E8C84A;
   --border: #D4CEC4;
   --shadow: rgba(28,28,26,0.08);
-  --font-display: 'Fraunces', Georgia, serif;
-  --font-body: 'DM Sans', system-ui, sans-serif;
+  --font-display: 'Playfair Display', Georgia, serif;
+  --font-body: 'Nunito', system-ui, sans-serif;
   --r: 12px;
   --r-sm: 8px;
 }
@@ -213,7 +213,7 @@ h1,h2,h3 { font-family: var(--font-display); font-weight: 400; }
 .plant-item { display: flex; flex-direction: column; align-items: center; cursor: pointer; transition: transform 0.15s; }
 .plant-item:hover { transform: scale(1.08); }
 .plant-svg { display: block; }
-.plant-label { font-size: 9px; color: #fff; font-weight: 500; margin-top: 2px; text-shadow: 0 1px 2px rgba(0,0,0,0.4); max-width: 56px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.plant-label { font-size: 9px; color: var(--moss-dark); font-weight: 700; margin-top: 2px; text-shadow: 0 1px 0 rgba(255,255,255,0.8); max-width: 56px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; background: rgba(255,255,255,0.75); border-radius: 4px; padding: 1px 3px; }
 .garden-stats { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 20px; }
 .stat-card { background: #fff; border: 1px solid var(--border); border-radius: var(--r-sm); padding: 14px 12px; text-align: center; }
 .stat-num { font-family: var(--font-display); font-size: 1.8rem; color: var(--moss); line-height: 1; }
@@ -260,7 +260,7 @@ h1,h2,h3 { font-family: var(--font-display); font-weight: 400; }
 .modal-backdrop.open { display: flex; }
 .modal { background: var(--cream); border-radius: 20px 20px 0 0; padding: 0 20px max(32px, calc(env(safe-area-inset-bottom) + 16px)); width: 100%; max-height: 92dvh; overflow-y: auto; animation: slideUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); }
 @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
-.modal-handle { width: 36px; height: 4px; background: var(--border); border-radius: 4px; margin: 12px auto 20px; }
+.modal-handle { width: 44px; height: 5px; background: var(--border); border-radius: 4px; margin: 14px auto 20px; cursor: pointer; touch-action: manipulation; }
 .modal-title { font-family: var(--font-display); font-size: 1.4rem; color: var(--ink); margin-bottom: 20px; }
 .modal-section { margin-bottom: 16px; }
 .modal-close { position: absolute; top: 16px; right: 16px; }
@@ -831,9 +831,9 @@ html { font-size: 14px; }
 
     <div class="modal-section">
       <label class="form-label">Date *</label>
-      <input class="form-input" id="ev-date" type="date" style="width:100%;box-sizing:border-box;margin-bottom:12px;">
+      <input class="form-input" id="ev-date" type="date" style="width:100%;box-sizing:border-box;margin-bottom:12px;-webkit-appearance:none;appearance:none;min-height:48px;">
       <label class="form-label">Time</label>
-      <input class="form-input" id="ev-time" type="time" style="width:100%;box-sizing:border-box;">
+      <input class="form-input" id="ev-time" type="time" style="width:100%;box-sizing:border-box;-webkit-appearance:none;appearance:none;min-height:48px;">
     </div>
 
     <div class="modal-section">
@@ -983,9 +983,9 @@ async function pullGardenUsers(gardenId) {
   const local = getUsers();
 
   // Check if current user has been removed from this garden by the owner
+  // Only act if server returned actual users (non-empty) — empty means server woke up cold
   const stillMember = serverUsers.some(u => u.username === currentUser.username);
-  if(!stillMember && currentUser.gardenId === gardenId) {
-    // We've been removed — move to a solo garden
+  if(!stillMember && serverUsers.length > 0 && currentUser.gardenId === gardenId && !currentUser.isOwner) {
     handleRemovedFromGarden();
     return;
   }
@@ -1170,7 +1170,10 @@ function doSignup() {
       else { showToast('Code not found — paste the full invite link instead'); return; }
     }
   } else {
-    gardenId = 'g_' + Math.random().toString(36).substr(2,9);
+    // Generate a permanent gardenId derived from username — never changes
+    let h = 0x811c9dc5;
+    for(let i = 0; i < username.length; i++) { h ^= username.charCodeAt(i); h = (h * 0x01000193) >>> 0; }
+    gardenId = 'g_' + h.toString(36);
   }
 
   const user = { name, username, password: hashPass(password), gardenId, joinedAt: Date.now(), color: randomColor(), isOwner: !isPending, pending: isPending };
@@ -1774,15 +1777,21 @@ let currentEventImage = null;
 function handleImageUpload(input) {
   const file = input.files[0];
   if(!file) return;
-  if(file.size > 5 * 1024 * 1024) { showToast('Image too large — please use under 5MB'); return; }
+  if(file.size > 5 * 1024 * 1024) { showToast('Image too large — please use under 5MB'); input.value = ''; return; }
   const reader = new FileReader();
   reader.onload = e => {
     currentEventImage = e.target.result;
     document.getElementById('img-preview').src = currentEventImage;
     document.getElementById('img-preview-wrap').style.display = 'block';
     document.getElementById('img-btn-row').style.display = 'none';
+    // Ensure save button is always tappable after image loads
+    const saveBtn = document.querySelector('#modal-add .btn-primary');
+    if(saveBtn) { saveBtn.style.pointerEvents = 'auto'; saveBtn.style.opacity = '1'; }
   };
+  reader.onerror = () => { showToast('Could not load image'); input.value = ''; };
   reader.readAsDataURL(file);
+  // Reset input so same file can be re-selected
+  setTimeout(() => { input.value = ''; }, 500);
 }
 
 function removeImage() {
@@ -2541,11 +2550,11 @@ function openEditEvent(id) {
     </div>
     <div class="form-group">
       <label class="form-label">Date *</label>
-      <input class="form-input" id="edit-date" type="date" value="${ev.date||''}">
+      <input class="form-input" id="edit-date" type="date" value="${ev.date||''}" style="-webkit-appearance:none;appearance:none;width:100%;box-sizing:border-box;">
     </div>
     <div class="form-group">
       <label class="form-label">Time</label>
-      <input class="form-input" id="edit-time" type="time" value="${ev.time||''}">
+      <input class="form-input" id="edit-time" type="time" value="${ev.time||''}" style="-webkit-appearance:none;appearance:none;width:100%;box-sizing:border-box;">
     </div>
     <div class="form-group">
       <label class="form-label">Location</label>
@@ -2561,10 +2570,28 @@ function openEditEvent(id) {
       <label class="form-label">Notes</label>
       <textarea class="form-input" id="edit-notes" rows="3" style="resize:none;">${esc(ev.notes||'')}</textarea>
     </div>
+    <div class="form-group">
+      <label class="form-label">Photo</label>
+      <div id="edit-img-preview-wrap" style="display:${ev.image?'block':'none'};margin-bottom:8px;position:relative;">
+        <img id="edit-img-preview" src="${ev.image||''}" style="width:100%;border-radius:var(--r-sm);max-height:160px;object-fit:cover;display:block;" alt="Event photo">
+        <button onclick="removeEditImage()" style="position:absolute;top:6px;right:6px;background:rgba(28,28,26,0.6);color:#fff;border:none;border-radius:50%;width:24px;height:24px;font-size:13px;cursor:pointer;line-height:1;">✕</button>
+      </div>
+      <div id="edit-img-btn-row" style="display:${ev.image?'none':'grid'};grid-template-columns:1fr 1fr;gap:8px;">
+        <button type="button" onclick="document.getElementById('edit-img-camera').click()" style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:12px 8px;border:1.5px dashed var(--border);border-radius:var(--r-sm);background:#fff;cursor:pointer;font-size:0.78rem;color:var(--ink-light);">
+          <span style="font-size:1.3rem;">📸</span>Take photo
+        </button>
+        <button type="button" onclick="document.getElementById('edit-img-input').click()" style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:12px 8px;border:1.5px dashed var(--border);border-radius:var(--r-sm);background:#fff;cursor:pointer;font-size:0.78rem;color:var(--ink-light);">
+          <span style="font-size:1.3rem;">🖼️</span>Choose photo
+        </button>
+      </div>
+      <input type="file" id="edit-img-camera" accept="image/*" capture="environment" style="display:none;" onchange="handleEditImageUpload(this)">
+      <input type="file" id="edit-img-input" accept="image/*" style="display:none;" onchange="handleEditImageUpload(this)">
+    </div>
     <button class="btn btn-primary btn-full" style="margin-bottom:10px;" onclick="saveEditEvent('${ev.id}')">Save changes</button>
     <button class="btn btn-ghost btn-full" onclick="renderEventDetail(getEvents(currentUser.gardenId).find(e=>e.id==='${ev.id}'))">Cancel</button>
   `;
   window._editCat = ev.category || 'other';
+  window._editImage = ev.image || null;
 }
 
 function selectEditCat(cat) {
@@ -2577,6 +2604,27 @@ function selectEditCat(cat) {
     btn.style.background  = c===cat ? 'var(--sage-pale)' : '#fff';
     btn.style.color       = c===cat ? 'var(--moss)' : 'var(--ink-muted)';
   });
+}
+
+function handleEditImageUpload(input) {
+  const file = input.files[0];
+  if(!file) return;
+  if(file.size > 5 * 1024 * 1024) { showToast('Image too large — please use under 5MB'); input.value = ''; return; }
+  const reader = new FileReader();
+  reader.onload = e => {
+    window._editImage = e.target.result;
+    document.getElementById('edit-img-preview').src = window._editImage;
+    document.getElementById('edit-img-preview-wrap').style.display = 'block';
+    document.getElementById('edit-img-btn-row').style.display = 'none';
+  };
+  reader.readAsDataURL(file);
+  setTimeout(() => { input.value = ''; }, 500);
+}
+
+function removeEditImage() {
+  window._editImage = null;
+  document.getElementById('edit-img-preview-wrap').style.display = 'none';
+  document.getElementById('edit-img-btn-row').style.display = 'grid';
 }
 
 function saveEditEvent(id) {
@@ -2597,6 +2645,7 @@ function saveEditEvent(id) {
     location: document.getElementById('edit-location').value.trim() || null,
     notes: document.getElementById('edit-notes').value.trim() || null,
     category: window._editCat || events[idx].category,
+    image: window._editImage !== undefined ? window._editImage : events[idx].image,
   };
 
   saveEvents(currentUser.gardenId, events);
@@ -3425,7 +3474,19 @@ function handleApprovalLink(payload) {
 function openModal(id) {
   const el = document.getElementById(id);
   el.classList.add('open');
+  // Close on backdrop click
   el.onclick = e => { if(e.target === el) closeModal(id); };
+  // Make handle tappable to close
+  const handle = el.querySelector('.modal-handle');
+  if(handle) {
+    handle.onclick = e => { e.stopPropagation(); closeModal(id); };
+    // Swipe down to close
+    let startY = 0;
+    handle.addEventListener('touchstart', e => { startY = e.touches[0].clientY; }, { passive: true });
+    handle.addEventListener('touchend', e => {
+      if(e.changedTouches[0].clientY - startY > 40) closeModal(id);
+    }, { passive: true });
+  }
 }
 function closeModal(id) {
   document.getElementById(id).classList.remove('open');
