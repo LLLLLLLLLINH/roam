@@ -1605,9 +1605,21 @@ function toggleComplete(id) {
   if(ev.completed) {
     ev.completedAt = Date.now();
     const totalAttended = events.filter(e => e.completed).length;
+    // Assign and store the plant variant index so it's consistent everywhere
+    const catVariants = {
+      community:[sunflowerSVG,daisySVG,peonyBushSVG,lavSVG],
+      music:[lavSVG,roseSVG,peonyBushSVG,tulipSVG],
+      food:[succulentSVG,cactusRoundSVG,sunflowerSVG,daisySVG],
+      art:[monsteraSVG,pothosVineSVG,peonyBushSVG,roseSVG],
+      sports:[tulipSVG,fernSVG,daisySVG,sunflowerSVG],
+      other:[snakePlantSVG,succulentSVG,cactusRoundSVG,monsteraSVG],
+    };
+    const pool = catVariants[ev.category] || catVariants.other;
+    ev.plantIdx = totalAttended % pool.length;
     triggerBloomReward(ev, totalAttended);
   } else {
     ev.completedAt = null;
+    ev.plantIdx = undefined;
   }
   saveEvents(currentUser.gardenId, events);
   renderWeek();
@@ -1760,7 +1772,8 @@ function triggerBloomReward(ev, totalAttended) {
   const meta = catMeta[cat] || catMeta.other;
   const variants = catVariants[cat] || catVariants.other;
   const names    = catVariants[cat+'_names'] || catVariants.other_names;
-  const idx = totalAttended % variants.length;
+  // Use stored plantIdx if available, otherwise fall back to totalAttended
+  const idx = (ev.plantIdx !== undefined) ? ev.plantIdx : (totalAttended % variants.length);
   const plantFn   = variants[idx];
   const plantName = names[idx];
   const colors = FLOWER_COLORS[cat] || FLOWER_COLORS.other;
@@ -2660,7 +2673,7 @@ function renderEventDetail(ev) {
   const events = getEvents(currentUser.gardenId);
   const evIdx = events.filter(e=>e.completed).findIndex(e=>e.id===ev.id);
   const pool = catPlants[ev.category] || catPlants.other;
-  const plantFn = pool[Math.max(0,evIdx) % pool.length];
+  const plantFn = pool[(ev.plantIdx !== undefined ? ev.plantIdx : 0) % pool.length];
   const color = catColors[ev.category] || '#f5c842';
   const plantSvg = plantFn(36, color);
 
@@ -3127,7 +3140,8 @@ function renderGarden() {
   } else {
     filtered.forEach((ev, i) => {
       const plantPool = catPlants[ev.category] || catPlants.other;
-      const plantFn = plantPool[i % plantPool.length];
+      // Use stored plantIdx if available, otherwise fall back to position index
+      const plantFn = plantPool[(ev.plantIdx !== undefined ? ev.plantIdx : i) % plantPool.length];
       const color = catColors[ev.category] || '#f5c842';
       const count = filtered.length;
       const size = count <= 2 ? 48 : count <= 4 ? 40 : count <= 7 ? 34 : count <= 10 ? 28 : 22;
@@ -3160,7 +3174,7 @@ function renderGarden() {
     recentDiv.innerHTML = `<div style="font-size:0.75rem;font-weight:500;text-transform:uppercase;letter-spacing:0.06em;color:var(--ink-muted);margin-bottom:10px;">Attended this ${gardenPeriod}</div>`;
     filtered.slice().reverse().forEach((ev, i) => {
       const plantPool = catPlants[ev.category] || catPlants.other;
-      const plantFn = plantPool[filtered.length > 1 ? (filtered.length - 1 - i) % plantPool.length : 0];
+      const plantFn = plantPool[(ev.plantIdx !== undefined ? ev.plantIdx : i) % plantPool.length];
       const color = catColors[ev.category] || '#f5c842';
       const miniPlant = plantFn(28, color);
       const d = document.createElement('div');
