@@ -1,128 +1,155 @@
 const express = require('express');
-const fs = require('fs');
-const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json({ limit: '5mb' }));
 app.use(express.static('.'));
 
-// ── Data store — persisted to a JSON file ─────────────────────
-const DATA_FILE = path.join('/tmp', 'roam_data.json');
-
-function loadData() {
-  try { return JSON.parse(fs.readFileSync(DATA_FILE, 'utf8')); }
-  catch(_) { return { gardens: {}, users: {}, events: {} }; }
-}
-
-function saveData(data) {
-  try { fs.writeFileSync(DATA_FILE, JSON.stringify(data)); } catch(_) {}
-}
-
 // ── CORS ───────────────────────────────────────────────────────
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Headers', 'Content-Type');
-  res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE');
+  res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
   if(req.method === 'OPTIONS') return res.sendStatus(200);
   next();
 });
 
-// ── API: Sync user (upsert) ────────────────────────────────────
-app.post('/api/user', (req, res) => {
-  const { username, passwordHash, name, color, gardenId, joinedAt, pending, isOwner } = req.body;
-  if(!username || !gardenId) return res.status(400).json({ error: 'Missing fields' });
-  const data = loadData();
-  data.users = data.users || {};
-  // Don't overwrite password if already set and new one is empty
-  const existing = data.users[username] || {};
-  data.users[username] = {
-    username, name, color, gardenId, joinedAt, pending: !!pending, isOwner: !!isOwner,
-    password: passwordHash || existing.password || ''
+// ── In-memory store + write-through to JSONBin ────────────────
+// JSONBin.io: free persistent JSON storage, 10,000 req/day free
+// Set JSONBIN_BIN_ID and JSONBIN_API_KEY as Render env variables
+const JSONBIN_BIN_ID  = process.env.JSONBIN_BIN_ID;
+const JSONBIN_API_KEY = process.env.JSONBIN_API_KEY;
+const JSONBIN_URL = `https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`;
+
+let store = { users: {}, events: {} };
+let storeReady = false;
+let saveQueued = false;
+
+async function loadFromCloud() {
+  if(!JSONBIN_BIN_ID || !JSONBIN_API_KEY) { storeReady = true; return; }
+  try {
+    const r = await fetch(JSONBIN_URL + '/latest', {
+      headers: { 'X-Master-Key': JSONBIN_API_KEY }
+    });
+    if(r.ok) {
+      const j = await r.json();
+      store = j.record || store;
+      console.log('Loaded from JSONBin:', Object.keys(store.users||{}).length, 'users');
+    }
+  } catch(e) { console.log('JSONBin load failed:', e.message); }
+  storeReady = true;
+}
+
+async function saveToCloud() {
+  if(!JSONBIN_BIN_ID || !JSONBIN_API_KEY) return;
+  if(saveQueued) return;
+  saveQueued = true;
+  setTimeout(async () => {
+    saveQueued = false;
+    try {
+      await fetch(JSONBIN_URL, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'X-Master-Key': JSONBIN_API_KEY },
+        body: JSON.stringify(store)
+      });
+    } catch(e) { console.log('JSONBin save failed:', e.message); }
+  }, 500); // debounce 500ms
+}
+
+loadFromCloud();
+
+// ── Wait for store to be ready ─────────────────────────────────
+function ready(fn) {
+  return async (req, res) => {
+    if(!storeReady) await new Promise(r => setTimeout(r, 1000));
+    fn(req, res);
   };
-  saveData(data);
-  res.json({ ok: true });
-});
+}
 
-// ── API: Get all users for a garden ───────────────────────────
-app.get('/api/garden/:gardenId/users', (req, res) => {
-  const data = loadData();
-  const users = Object.values(data.users || {})
-    .filter(u => u.gardenId === req.params.gardenId)
-    .map(u => ({ ...u, password: undefined })); // never send passwords
-  res.json(users);
-});
-
-// ── API: Approve member ────────────────────────────────────────
-app.post('/api/garden/:gardenId/approve', (req, res) => {
-  const { username } = req.body;
-  const data = loadData();
-  if(data.users[username] && data.users[username].gardenId === req.params.gardenId) {
-    data.users[username].pending = false;
-    saveData(data);
-    return res.json({ ok: true });
-  }
-  res.status(404).json({ error: 'User not found' });
-});
-
-// ── API: Deny/remove member ────────────────────────────────────
-app.delete('/api/garden/:gardenId/user/:username', (req, res) => {
-  const data = loadData();
-  if(data.users[req.params.username]?.gardenId === req.params.gardenId) {
-    delete data.users[req.params.username];
-    saveData(data);
-  }
-  res.json({ ok: true });
-});
-
-// ── API: Get events for a garden ──────────────────────────────
-app.get('/api/garden/:gardenId/events', (req, res) => {
-  const data = loadData();
-  res.json((data.events || {})[req.params.gardenId] || []);
-});
-
-// ── API: Save events for a garden ─────────────────────────────
-app.put('/api/garden/:gardenId/events', (req, res) => {
-  const events = req.body;
-  if(!Array.isArray(events)) return res.status(400).json({ error: 'Expected array' });
-  const data = loadData();
-  data.events = data.events || {};
-  data.events[req.params.gardenId] = events;
-  saveData(data);
-  res.json({ ok: true });
-});
-
-// ── API: Look up garden by 6-digit code ───────────────────────
-app.get('/api/lookup-code/:code', (req, res) => {
-  const code = req.params.code.toUpperCase();
-  const data = loadData();
-  // Find all unique gardenIds on the server and check their deterministic codes
-  const gardenIds = [...new Set(Object.values(data.users || {}).map(u => u.gardenId).filter(Boolean))];
-  const match = gardenIds.find(gid => gardenCodeFromId(gid) === code);
-  if(match) return res.json({ gardenId: match });
-  res.status(404).json({ error: 'Code not found' });
-});
-
-// Deterministic code function (mirrors client-side)
+// ── Deterministic code from gardenId ──────────────────────────
 function gardenCodeFromId(gardenId) {
   let h = 0x811c9dc5;
   for(let i = 0; i < gardenId.length; i++) { h ^= gardenId.charCodeAt(i); h = (h * 0x01000193) >>> 0; }
   return h.toString(36).toUpperCase().padStart(6,'0').slice(-6);
 }
 
-// ── API: Login check ──────────────────────────────────────────
-app.post('/api/login', (req, res) => {
+// ── API ────────────────────────────────────────────────────────
+
+// Upsert user
+app.post('/api/user', ready((req, res) => {
+  const { username, passwordHash, name, color, gardenId, joinedAt, pending, isOwner } = req.body;
+  if(!username || !gardenId) return res.status(400).json({ error: 'Missing fields' });
+  const existing = (store.users||{})[username] || {};
+  store.users = store.users || {};
+  store.users[username] = {
+    username, name, color, gardenId, joinedAt, pending: !!pending, isOwner: !!isOwner,
+    password: passwordHash || existing.password || ''
+  };
+  saveToCloud();
+  res.json({ ok: true });
+}));
+
+// Get users for a garden
+app.get('/api/garden/:gardenId/users', ready((req, res) => {
+  const users = Object.values(store.users || {})
+    .filter(u => u.gardenId === req.params.gardenId)
+    .map(u => ({ ...u, password: undefined }));
+  res.json(users);
+}));
+
+// Approve member
+app.post('/api/garden/:gardenId/approve', ready((req, res) => {
+  const { username } = req.body;
+  if(store.users[username]?.gardenId === req.params.gardenId) {
+    store.users[username].pending = false;
+    saveToCloud();
+    return res.json({ ok: true });
+  }
+  res.status(404).json({ error: 'User not found' });
+}));
+
+// Remove member
+app.delete('/api/garden/:gardenId/user/:username', ready((req, res) => {
+  if(store.users[req.params.username]?.gardenId === req.params.gardenId) {
+    delete store.users[req.params.username];
+    saveToCloud();
+  }
+  res.json({ ok: true });
+}));
+
+// Get events
+app.get('/api/garden/:gardenId/events', ready((req, res) => {
+  res.json((store.events || {})[req.params.gardenId] || []);
+}));
+
+// Save events
+app.put('/api/garden/:gardenId/events', ready((req, res) => {
+  if(!Array.isArray(req.body)) return res.status(400).json({ error: 'Expected array' });
+  store.events = store.events || {};
+  store.events[req.params.gardenId] = req.body;
+  saveToCloud();
+  res.json({ ok: true });
+}));
+
+// Lookup garden by 6-digit code
+app.get('/api/lookup-code/:code', ready((req, res) => {
+  const code = req.params.code.toUpperCase();
+  const gardenIds = [...new Set(Object.values(store.users || {}).map(u => u.gardenId).filter(Boolean))];
+  const match = gardenIds.find(gid => gardenCodeFromId(gid) === code);
+  if(match) return res.json({ gardenId: match });
+  res.status(404).json({ error: 'Code not found' });
+}));
+
+// Login
+app.post('/api/login', ready((req, res) => {
   const { username, passwordHash } = req.body;
-  const data = loadData();
-  const user = data.users[username];
+  const user = (store.users || {})[username];
   if(!user) return res.status(401).json({ error: 'User not found' });
   if(user.password && user.password !== passwordHash) return res.status(401).json({ error: 'Wrong password' });
   res.json({ ...user, password: undefined });
-});
+}));
 
-// ── Serve app ─────────────────────────────────────────────────
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'index.html'));
-});
+// Health check
+app.get('/api/health', (req, res) => res.json({ ok: true, users: Object.keys(store.users||{}).length }));
 
-app.listen(PORT, () => console.log('Roam. server running on', PORT));
+app.listen(PORT, () => console.log('Roam. server on port', PORT));
