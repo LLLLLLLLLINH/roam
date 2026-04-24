@@ -2903,192 +2903,176 @@ const PLANTS = [
 ];
 
 function sunflowerSVG(s,c) {
-  const col = c||'#E8C84A';
-  return `<svg class="plant-svg" width="${s}" height="${Math.round(s*1.5)}" viewBox="0 0 40 60">
-    <line x1="20" y1="60" x2="20" y2="26" stroke="#5a8a3c" stroke-width="3" stroke-linecap="round"/>
-    <path d="M20 42 Q27 36 31 28 Q23 33 20 42Z" fill="#7db55a"/>
-    <path d="M20 40 Q13 34 9 26 Q17 31 20 40Z" fill="#5a8a3c"/>
-    <ellipse cx="20" cy="5" rx="5" ry="7" fill="${col}" opacity="0.9"/>
-    <ellipse cx="20" cy="27" rx="5" ry="7" fill="${col}" opacity="0.9"/>
-    <ellipse cx="9" cy="16" rx="7" ry="5" fill="${col}" opacity="0.9"/>
-    <ellipse cx="31" cy="16" rx="7" ry="5" fill="${col}" opacity="0.9"/>
-    <ellipse cx="12" cy="7" rx="5" ry="7" fill="${col}" opacity="0.75" transform="rotate(-45 12 7)"/>
-    <ellipse cx="28" cy="7" rx="5" ry="7" fill="${col}" opacity="0.75" transform="rotate(45 28 7)"/>
-    <ellipse cx="12" cy="25" rx="5" ry="7" fill="${col}" opacity="0.75" transform="rotate(45 12 25)"/>
-    <ellipse cx="28" cy="25" rx="5" ry="7" fill="${col}" opacity="0.75" transform="rotate(-45 28 25)"/>
-    <circle cx="20" cy="16" r="7" fill="#c4714a"/>
-    <circle cx="20" cy="16" r="4" fill="#8b3e1a"/>
+  const col = c||'#f5c842';
+  return `<svg class="plant-svg" width="${s}" height="${Math.round(s*1.8)}" viewBox="0 0 40 72">
+    <line x1="20" y1="72" x2="20" y2="36" stroke="#5a8a3c" stroke-width="3" stroke-linecap="round"/>
+    <path d="M20 50 Q27 44 31 36 Q23 41 20 50Z" fill="#7db55a"/>
+    <path d="M20 48 Q13 42 9 34 Q17 39 20 48Z" fill="#5a8a3c"/>
+    <ellipse cx="20" cy="14" rx="5" ry="7" fill="${col}" opacity="0.9"/>
+    <ellipse cx="20" cy="34" rx="5" ry="7" fill="${col}" opacity="0.9"/>
+    <ellipse cx="9" cy="24" rx="7" ry="5" fill="${col}" opacity="0.9"/>
+    <ellipse cx="31" cy="24" rx="7" ry="5" fill="${col}" opacity="0.9"/>
+    <ellipse cx="12" cy="15" rx="5" ry="7" fill="${col}" opacity="0.8" transform="rotate(-45 12 15)"/>
+    <ellipse cx="28" cy="15" rx="5" ry="7" fill="${col}" opacity="0.8" transform="rotate(45 28 15)"/>
+    <ellipse cx="12" cy="33" rx="5" ry="7" fill="${col}" opacity="0.8" transform="rotate(45 12 33)"/>
+    <ellipse cx="28" cy="33" rx="5" ry="7" fill="${col}" opacity="0.8" transform="rotate(-45 28 33)"/>
+    <circle cx="20" cy="24" r="7" fill="#c4714a"/>
+    <circle cx="20" cy="24" r="4.5" fill="#8b3e1a"/>
+    <circle cx="18" cy="22" r="1.2" fill="rgba(255,255,255,0.3)"/>
   </svg>`;
 }
-
 function roseSVG(s,c) {
-  const col = c||'#e8829a';
-  return `<svg class="plant-svg" width="${s}" height="${Math.round(s*1.5)}" viewBox="0 0 40 60">
-    <line x1="20" y1="60" x2="20" y2="26" stroke="#5a8a3c" stroke-width="3" stroke-linecap="round"/>
-    <path d="M20 40 Q28 33 32 22 Q22 30 20 40Z" fill="#7db55a"/>
-    <path d="M20 36 Q12 29 8 18 Q18 26 20 36Z" fill="#5a8a3c"/>
-    <circle cx="20" cy="14" r="13" fill="${col}" opacity="0.25"/>
-    <circle cx="20" cy="14" r="10" fill="${col}" opacity="0.45"/>
-    <circle cx="20" cy="14" r="7.5" fill="${col}" opacity="0.7"/>
-    <circle cx="20" cy="14" r="5" fill="${col}" opacity="0.9"/>
-    <circle cx="20" cy="14" r="3" fill="${col}"/>
-    <circle cx="20" cy="14" r="1.5" fill="white" opacity="0.6"/>
+  const col = c||'#e8729a';
+  return `<svg class="plant-svg" width="${s}" height="${Math.round(s*1.8)}" viewBox="0 0 40 72">
+    <line x1="20" y1="72" x2="20" y2="34" stroke="#5a8a3c" stroke-width="3" stroke-linecap="round"/>
+    <path d="M20 50 Q28 43 32 33 Q22 40 20 50Z" fill="#7db55a"/>
+    <path d="M20 46 Q12 39 8 29 Q18 36 20 46Z" fill="#5a8a3c"/>
+    <circle cx="20" cy="20" r="13" fill="${col}" opacity="0.2"/>
+    <circle cx="20" cy="20" r="10" fill="${col}" opacity="0.4"/>
+    <circle cx="20" cy="20" r="7.5" fill="${col}" opacity="0.65"/>
+    <circle cx="20" cy="20" r="5" fill="${col}" opacity="0.9"/>
+    <circle cx="20" cy="20" r="3" fill="${col}"/>
+    <circle cx="20" cy="20" r="1.5" fill="white" opacity="0.5"/>
   </svg>`;
 }
-
 function daisySVG(s,c) {
   const col = c||'#ffffff';
-  return `<svg class="plant-svg" width="${s}" height="${Math.round(s*1.5)}" viewBox="0 0 40 60">
-    <line x1="20" y1="60" x2="20" y2="26" stroke="#5a8a3c" stroke-width="2.5" stroke-linecap="round"/>
-    <path d="M20 38 Q13 30 9 20 Q17 28 20 38Z" fill="#7db55a"/>
-    ${[0,36,72,108,144,180,216,252,288,324].map(a=>`<ellipse cx="${(20+Math.cos(a*Math.PI/180)*9.5).toFixed(1)}" cy="${(14+Math.sin(a*Math.PI/180)*9.5).toFixed(1)}" rx="3.5" ry="6" fill="${col}" opacity="0.95" transform="rotate(${a} ${(20+Math.cos(a*Math.PI/180)*9.5).toFixed(1)} ${(14+Math.sin(a*Math.PI/180)*9.5).toFixed(1)})" stroke="#e8e0d0" stroke-width="0.5"/>`).join('')}
-    <circle cx="20" cy="14" r="5.5" fill="#f0c040"/>
-    <circle cx="20" cy="14" r="3" fill="#e8a820"/>
+  return `<svg class="plant-svg" width="${s}" height="${Math.round(s*1.8)}" viewBox="0 0 40 72">
+    <line x1="20" y1="72" x2="20" y2="34" stroke="#5a8a3c" stroke-width="2.5" stroke-linecap="round"/>
+    <path d="M20 48 Q13 40 9 30 Q17 38 20 48Z" fill="#7db55a"/>
+    ${[0,36,72,108,144,180,216,252,288,324].map(a=>`<ellipse cx="${(20+Math.cos(a*Math.PI/180)*9.5).toFixed(1)}" cy="${(22+Math.sin(a*Math.PI/180)*9.5).toFixed(1)}" rx="3.5" ry="6" fill="${col}" stroke="#ddd" stroke-width="0.5" transform="rotate(${a} ${(20+Math.cos(a*Math.PI/180)*9.5).toFixed(1)} ${(22+Math.sin(a*Math.PI/180)*9.5).toFixed(1)})"/>`).join('')}
+    <circle cx="20" cy="22" r="5.5" fill="#f0c040"/>
+    <circle cx="20" cy="22" r="3" fill="#e8a820"/>
   </svg>`;
 }
-
 function tulipSVG(s,c) {
   const col = c||'#e8729a';
-  return `<svg class="plant-svg" width="${s}" height="${Math.round(s*1.5)}" viewBox="0 0 40 60">
-    <line x1="20" y1="60" x2="20" y2="30" stroke="#5a8a3c" stroke-width="3" stroke-linecap="round"/>
-    <path d="M20 44 Q28 36 32 26 Q22 34 20 44Z" fill="#7db55a"/>
-    <path d="M20 40 Q12 32 8 22 Q18 30 20 40Z" fill="#5a8a3c"/>
-    <path d="M13 28 Q11 14 20 8 Q29 14 27 28 Q24 34 20 35 Q16 34 13 28Z" fill="${col}"/>
-    <path d="M16 28 Q15 16 20 10 Q25 16 24 28" fill="${col}" opacity="0.4" style="filter:brightness(0.8)"/>
-    <ellipse cx="20" cy="9" rx="4" ry="3" fill="white" opacity="0.25"/>
+  return `<svg class="plant-svg" width="${s}" height="${Math.round(s*1.8)}" viewBox="0 0 40 72">
+    <line x1="20" y1="72" x2="20" y2="36" stroke="#5a8a3c" stroke-width="3" stroke-linecap="round"/>
+    <path d="M20 52 Q28 44 32 34 Q22 42 20 52Z" fill="#7db55a"/>
+    <path d="M20 48 Q12 40 8 30 Q18 38 20 48Z" fill="#5a8a3c"/>
+    <path d="M13 34 Q11 20 20 14 Q29 20 27 34 Q24 40 20 41 Q16 40 13 34Z" fill="${col}"/>
+    <path d="M16.5 34 Q15.5 22 20 16 Q24.5 22 23.5 34" fill="${col}" opacity="0.35" style="mix-blend-mode:multiply"/>
+    <ellipse cx="20" cy="15" rx="4" ry="2.5" fill="white" opacity="0.2"/>
   </svg>`;
 }
-
 function fernSVG(s,c) {
   const col = c||'#6ab04c';
-  return `<svg class="plant-svg" width="${s}" height="${Math.round(s*1.5)}" viewBox="0 0 40 60">
-    <line x1="20" y1="60" x2="20" y2="10" stroke="#5a8a3c" stroke-width="2.5" stroke-linecap="round"/>
-    <path d="M20 50 Q32 38 38 22 Q26 32 20 50Z" fill="${col}" opacity="0.95"/>
-    <path d="M20 46 Q8 34 2 18 Q14 28 20 46Z" fill="${col}" opacity="0.85"/>
-    <path d="M20 36 Q30 24 34 12 Q23 20 20 36Z" fill="${col}" opacity="0.8"/>
-    <path d="M20 32 Q10 20 6 8 Q17 16 20 32Z" fill="${col}" opacity="0.75"/>
-    <path d="M20 22 Q26 14 28 6 Q21 11 20 22Z" fill="${col}" opacity="0.7"/>
-    <path d="M20 20 Q14 12 12 4 Q19 9 20 20Z" fill="${col}" opacity="0.65"/>
+  return `<svg class="plant-svg" width="${s}" height="${Math.round(s*1.8)}" viewBox="0 0 40 72">
+    <line x1="20" y1="72" x2="20" y2="12" stroke="#5a8a3c" stroke-width="2.5" stroke-linecap="round"/>
+    <path d="M20 58 Q32 46 38 30 Q26 40 20 58Z" fill="${col}" opacity="0.95"/>
+    <path d="M20 54 Q8 42 2 26 Q14 36 20 54Z" fill="${col}" opacity="0.85"/>
+    <path d="M20 44 Q30 32 34 18 Q23 28 20 44Z" fill="${col}" opacity="0.8"/>
+    <path d="M20 40 Q10 28 6 14 Q17 24 20 40Z" fill="${col}" opacity="0.75"/>
+    <path d="M20 28 Q26 18 28 8 Q21 15 20 28Z" fill="${col}" opacity="0.7"/>
+    <path d="M20 26 Q14 16 12 6 Q19 13 20 26Z" fill="${col}" opacity="0.65"/>
   </svg>`;
 }
-
 function lavSVG(s,c) {
   const col = c||'#b39ddb';
-  return `<svg class="plant-svg" width="${s}" height="${Math.round(s*1.5)}" viewBox="0 0 40 60">
-    <line x1="20" y1="60" x2="20" y2="22" stroke="#5a8a3c" stroke-width="2.5" stroke-linecap="round"/>
-    <path d="M20 44 Q26 36 28 26 Q21 34 20 44Z" fill="#7db55a"/>
-    <path d="M20 40 Q14 32 12 22 Q19 30 20 40Z" fill="#5a8a3c"/>
-    ${[4,8,12,16,20,24,28,32,36].map((y,i)=>`<ellipse cx="${20+(i%2===0?-4:4)}" cy="${y}" rx="5" ry="3.5" fill="${col}" opacity="${0.55+i*0.05}"/>`).join('')}
+  return `<svg class="plant-svg" width="${s}" height="${Math.round(s*1.8)}" viewBox="0 0 40 72">
+    <line x1="20" y1="72" x2="20" y2="30" stroke="#5a8a3c" stroke-width="2.5" stroke-linecap="round"/>
+    <path d="M20 52 Q26 44 28 34 Q21 42 20 52Z" fill="#7db55a"/>
+    <path d="M20 48 Q14 40 12 30 Q19 38 20 48Z" fill="#5a8a3c"/>
+    ${[8,13,18,23,28,33,38,43,48].map((y,i)=>`<ellipse cx="${20+(i%2===0?-4:4)}" cy="${y}" rx="5" ry="3.5" fill="${col}" opacity="${0.5+i*0.055}"/>`).join('')}
   </svg>`;
 }
-
 function monsteraSVG(s,c) {
   const col = c||'#4a8c5c';
-  return `<svg class="plant-svg" width="${s}" height="${Math.round(s*1.5)}" viewBox="0 0 40 60">
-    <rect x="16" y="50" width="8" height="10" rx="2" fill="#c4714a"/>
-    <rect x="13" y="47" width="14" height="5" rx="2" fill="#e8b99a"/>
-    <line x1="20" y1="47" x2="20" y2="34" stroke="${col}" stroke-width="2.5" stroke-linecap="round"/>
-    <line x1="20" y1="40" x2="11" y2="28" stroke="${col}" stroke-width="2" stroke-linecap="round"/>
-    <line x1="20" y1="38" x2="29" y2="26" stroke="${col}" stroke-width="2" stroke-linecap="round"/>
-    <path d="M4 16 Q3 6 11 3 Q17 1 20 6 Q23 1 29 3 Q37 7 36 16 Q34 24 27 27 Q23 29 20 28 Q17 29 13 27 Q6 24 4 16Z" fill="${col}"/>
-    <path d="M12 25 Q8 18 10 11" stroke="rgba(255,255,255,0.35)" stroke-width="1.2" fill="none"/>
-    <path d="M20 27 Q18 18 20 10" stroke="rgba(255,255,255,0.35)" stroke-width="1.2" fill="none"/>
-    <path d="M28 25 Q32 18 30 12" stroke="rgba(255,255,255,0.35)" stroke-width="1.2" fill="none"/>
-    <ellipse cx="13" cy="18" rx="2.5" ry="4" fill="#2e5c3e" opacity="0.5" transform="rotate(-25 13 18)"/>
-    <ellipse cx="27" cy="18" rx="2.5" ry="4" fill="#2e5c3e" opacity="0.5" transform="rotate(25 27 18)"/>
+  return `<svg class="plant-svg" width="${s}" height="${Math.round(s*1.8)}" viewBox="0 0 40 72">
+    <rect x="16" y="62" width="8" height="10" rx="2" fill="#c4714a"/>
+    <rect x="13" y="59" width="14" height="5" rx="2" fill="#e8b99a"/>
+    <line x1="20" y1="59" x2="20" y2="46" stroke="${col}" stroke-width="2.5" stroke-linecap="round"/>
+    <line x1="20" y1="52" x2="11" y2="38" stroke="${col}" stroke-width="2" stroke-linecap="round"/>
+    <line x1="20" y1="50" x2="29" y2="36" stroke="${col}" stroke-width="2" stroke-linecap="round"/>
+    <path d="M4 24 Q3 12 12 8 Q17 6 20 12 Q23 6 28 8 Q37 12 36 24 Q34 33 27 36 Q23 38 20 37 Q17 38 13 36 Q6 33 4 24Z" fill="${col}"/>
+    <path d="M12 34 Q8 26 10 18" stroke="rgba(255,255,255,0.3)" stroke-width="1.2" fill="none"/>
+    <path d="M20 36 Q18 26 20 16" stroke="rgba(255,255,255,0.3)" stroke-width="1.2" fill="none"/>
+    <path d="M28 34 Q32 26 30 18" stroke="rgba(255,255,255,0.3)" stroke-width="1.2" fill="none"/>
+    <ellipse cx="13" cy="26" rx="2.5" ry="4" fill="#2e5c3e" opacity="0.45" transform="rotate(-25 13 26)"/>
+    <ellipse cx="27" cy="26" rx="2.5" ry="4" fill="#2e5c3e" opacity="0.45" transform="rotate(25 27 26)"/>
   </svg>`;
 }
-
 function succulentSVG(s,c) {
   const col = c||'#7db55a';
-  return `<svg class="plant-svg" width="${s}" height="${Math.round(s*1.3)}" viewBox="0 0 40 52">
-    <rect x="13" y="40" width="14" height="12" rx="3" fill="#c4714a"/>
-    <rect x="11" y="37" width="18" height="6" rx="2" fill="#e8b99a"/>
-    <ellipse cx="20" cy="30" rx="6.5" ry="5" fill="${col}"/>
-    <ellipse cx="12" cy="32" rx="5.5" ry="4.5" fill="${col}" opacity="0.9"/>
-    <ellipse cx="28" cy="32" rx="5.5" ry="4.5" fill="${col}" opacity="0.9"/>
-    <ellipse cx="9" cy="28" rx="4.5" ry="4" fill="${col}" opacity="0.8"/>
-    <ellipse cx="31" cy="28" rx="4.5" ry="4" fill="${col}" opacity="0.8"/>
-    <ellipse cx="15" cy="25" rx="4" ry="3.5" fill="${col}" opacity="0.85"/>
-    <ellipse cx="25" cy="25" rx="4" ry="3.5" fill="${col}" opacity="0.85"/>
-    <ellipse cx="20" cy="22" rx="4" ry="3.5" fill="#5a9e60"/>
-    <circle cx="20" cy="19" r="3" fill="#3d7a48"/>
-    <circle cx="20" cy="19" r="1.5" fill="#2a5e34" opacity="0.8"/>
-  </svg>`;
-}
-
-function snakePlantSVG(s,c) {
-  const col = c||'#4a8c5c';
-  const stripe = '#7db55a';
   return `<svg class="plant-svg" width="${s}" height="${Math.round(s*1.5)}" viewBox="0 0 40 60">
-    <rect x="12" y="50" width="16" height="10" rx="3" fill="#c4714a"/>
-    <rect x="10" y="46" width="20" height="6" rx="2" fill="#e8b99a"/>
-    <path d="M15 46 Q13 30 15 10 Q16 4 18 8 Q19 28 18 46Z" fill="${col}" stroke="${stripe}" stroke-width="0.5"/>
-    <path d="M17 10 Q16 6 17.5 4 Q19 3 20 6 Q20 22 19 46 Q18 46 17 46Z" fill="${col}" opacity="0.9"/>
-    <line x1="17" y1="46" x2="16" y2="10" stroke="${stripe}" stroke-width="1" opacity="0.4"/>
-    <path d="M20 46 Q22 30 21 12 Q21 6 23 8 Q25 12 24 46Z" fill="${col}" opacity="0.85"/>
-    <line x1="22" y1="46" x2="22" y2="14" stroke="${stripe}" stroke-width="1" opacity="0.35"/>
-    <path d="M24 46 Q26 32 25 16 Q25 10 27 12 Q28 16 27 46Z" fill="${col}" opacity="0.75"/>
+    <rect x="13" y="48" width="14" height="12" rx="3" fill="#c4714a"/>
+    <rect x="11" y="45" width="18" height="5" rx="2" fill="#e8b99a"/>
+    <ellipse cx="20" cy="38" rx="6.5" ry="5" fill="${col}"/>
+    <ellipse cx="12" cy="40" rx="5.5" ry="4.5" fill="${col}" opacity="0.9"/>
+    <ellipse cx="28" cy="40" rx="5.5" ry="4.5" fill="${col}" opacity="0.9"/>
+    <ellipse cx="9" cy="36" rx="4.5" ry="4" fill="${col}" opacity="0.8"/>
+    <ellipse cx="31" cy="36" rx="4.5" ry="4" fill="${col}" opacity="0.8"/>
+    <ellipse cx="15" cy="33" rx="4" ry="3.5" fill="${col}" opacity="0.85"/>
+    <ellipse cx="25" cy="33" rx="4" ry="3.5" fill="${col}" opacity="0.85"/>
+    <ellipse cx="20" cy="30" rx="4" ry="3.5" fill="#5a9e60"/>
+    <circle cx="20" cy="27" r="3" fill="#3d7a48"/>
   </svg>`;
 }
-
+function snakePlantSVG(s,c) {
+  const col = c||'#4a8c5c'; const stripe = '#7db55a';
+  return `<svg class="plant-svg" width="${s}" height="${Math.round(s*1.8)}" viewBox="0 0 40 72">
+    <rect x="12" y="62" width="16" height="10" rx="3" fill="#c4714a"/>
+    <rect x="10" y="58" width="20" height="6" rx="2" fill="#e8b99a"/>
+    <path d="M15 58 Q13 42 15 18 Q16 10 18 14 Q19 38 18 58Z" fill="${col}" stroke="${stripe}" stroke-width="0.5"/>
+    <path d="M18 14 Q17 8 19 6 Q21 5 22 10 Q22 30 21 58 Q20 58 19 58Z" fill="${col}" opacity="0.9"/>
+    <line x1="17" y1="58" x2="16" y2="14" stroke="${stripe}" stroke-width="1" opacity="0.4"/>
+    <path d="M22 58 Q24 42 23 20 Q23 12 25 14 Q27 18 26 58Z" fill="${col}" opacity="0.8"/>
+    <line x1="24" y1="58" x2="24" y2="22" stroke="${stripe}" stroke-width="1" opacity="0.35"/>
+  </svg>`;
+}
 function pothosVineSVG(s,c) {
   const col = c||'#5a9e60';
-  return `<svg class="plant-svg" width="${s}" height="${Math.round(s*1.5)}" viewBox="0 0 40 60">
-    <rect x="15" y="50" width="10" height="10" rx="2.5" fill="#c4714a"/>
-    <rect x="13" y="47" width="14" height="5" rx="2" fill="#e8b99a"/>
-    <path d="M20 47 Q19 38 17 28" stroke="${col}" stroke-width="2" fill="none" stroke-linecap="round"/>
-    <path d="M17 28 Q9 21 5 11" stroke="${col}" stroke-width="2" fill="none" stroke-linecap="round"/>
-    <ellipse cx="9" cy="15" rx="6" ry="4.5" fill="${col}" transform="rotate(-30 9 15)" opacity="0.95"/>
-    <ellipse cx="5.5" cy="9" rx="5" ry="3.5" fill="${col}" transform="rotate(-40 5.5 9)" opacity="0.85"/>
-    <path d="M20 47 Q22 38 26 30" stroke="${col}" stroke-width="2" fill="none" stroke-linecap="round"/>
-    <path d="M26 30 Q33 22 35 13" stroke="${col}" stroke-width="2" fill="none" stroke-linecap="round"/>
-    <ellipse cx="32" cy="17" rx="6" ry="4.5" fill="${col}" transform="rotate(30 32 17)" opacity="0.95"/>
-    <ellipse cx="35" cy="10" rx="5" ry="3.5" fill="${col}" transform="rotate(40 35 10)" opacity="0.85"/>
-    <ellipse cx="20" cy="28" rx="6" ry="4.5" fill="${col}" opacity="0.9"/>
-    <line x1="9" y1="15" x2="10" y2="16" stroke="white" stroke-width="0.8" opacity="0.4"/>
-    <line x1="32" y1="17" x2="31" y2="18" stroke="white" stroke-width="0.8" opacity="0.4"/>
+  return `<svg class="plant-svg" width="${s}" height="${Math.round(s*1.8)}" viewBox="0 0 40 72">
+    <rect x="15" y="62" width="10" height="10" rx="2.5" fill="#c4714a"/>
+    <rect x="13" y="59" width="14" height="5" rx="2" fill="#e8b99a"/>
+    <path d="M20 59 Q19 50 17 40" stroke="${col}" stroke-width="2" fill="none" stroke-linecap="round"/>
+    <path d="M17 40 Q9 32 5 20" stroke="${col}" stroke-width="2" fill="none" stroke-linecap="round"/>
+    <ellipse cx="9" cy="24" rx="6" ry="4.5" fill="${col}" transform="rotate(-30 9 24)" opacity="0.95"/>
+    <ellipse cx="5.5" cy="18" rx="5" ry="3.5" fill="${col}" transform="rotate(-40 5.5 18)" opacity="0.85"/>
+    <path d="M20 59 Q22 50 26 42" stroke="${col}" stroke-width="2" fill="none" stroke-linecap="round"/>
+    <path d="M26 42 Q33 34 35 22" stroke="${col}" stroke-width="2" fill="none" stroke-linecap="round"/>
+    <ellipse cx="32" cy="26" rx="6" ry="4.5" fill="${col}" transform="rotate(30 32 26)" opacity="0.95"/>
+    <ellipse cx="35" cy="20" rx="5" ry="3.5" fill="${col}" transform="rotate(40 35 20)" opacity="0.85"/>
+    <ellipse cx="20" cy="40" rx="6" ry="4.5" fill="${col}" opacity="0.9"/>
   </svg>`;
 }
-
 function cactusRoundSVG(s,c) {
   const col = c||'#6ab04c';
-  return `<svg class="plant-svg" width="${s}" height="${Math.round(s*1.4)}" viewBox="0 0 40 56">
-    <rect x="13" y="44" width="14" height="12" rx="3" fill="#c4714a"/>
-    <rect x="11" y="41" width="18" height="5" rx="2" fill="#e8b99a"/>
-    <ellipse cx="20" cy="26" rx="12" ry="15" fill="${col}"/>
-    <ellipse cx="20" cy="26" rx="9" ry="12" fill="${col}" style="filter:brightness(1.1)"/>
-    <line x1="20" y1="12" x2="20" y2="40" stroke="#4a8032" stroke-width="1" opacity="0.4"/>
-    <line x1="8.5" y1="22" x2="31.5" y2="22" stroke="#4a8032" stroke-width="1" opacity="0.35"/>
-    ${[0,45,90,135,180,225,270,315].map(a=>`<line x1="${(20+Math.cos(a*Math.PI/180)*12).toFixed(1)}" y1="${(26+Math.sin(a*Math.PI/180)*15).toFixed(1)}" x2="${(20+Math.cos(a*Math.PI/180)*15).toFixed(1)}" y2="${(26+Math.sin(a*Math.PI/180)*18).toFixed(1)}" stroke="white" stroke-width="1.2" opacity="0.7"/>`).join('')}
-    <ellipse cx="20" cy="11" rx="5" ry="3.5" fill="#e8729a" opacity="0.95"/>
-    <ellipse cx="20" cy="11" rx="3" ry="2" fill="#c4506a"/>
+  return `<svg class="plant-svg" width="${s}" height="${Math.round(s*1.7)}" viewBox="0 0 40 68">
+    <rect x="13" y="56" width="14" height="12" rx="3" fill="#c4714a"/>
+    <rect x="11" y="53" width="18" height="5" rx="2" fill="#e8b99a"/>
+    <ellipse cx="20" cy="36" rx="12" ry="17" fill="${col}"/>
+    <line x1="20" y1="20" x2="20" y2="52" stroke="#4a8032" stroke-width="1" opacity="0.35"/>
+    <line x1="8.5" y1="32" x2="31.5" y2="32" stroke="#4a8032" stroke-width="1" opacity="0.3"/>
+    ${[0,45,90,135,180,225,270,315].map(a=>`<line x1="${(20+Math.cos(a*Math.PI/180)*12).toFixed(1)}" y1="${(36+Math.sin(a*Math.PI/180)*17).toFixed(1)}" x2="${(20+Math.cos(a*Math.PI/180)*15).toFixed(1)}" y2="${(36+Math.sin(a*Math.PI/180)*20).toFixed(1)}" stroke="white" stroke-width="1.2" opacity="0.6"/>`).join('')}
+    <ellipse cx="20" cy="19" rx="5" ry="3.5" fill="#e8729a" opacity="0.95"/>
+    <ellipse cx="20" cy="19" rx="3" ry="2" fill="#c4506a"/>
   </svg>`;
 }
-
 function peonyBushSVG(s,c) {
   const col = c||'#f0a0b8';
-  return `<svg class="plant-svg" width="${s}" height="${Math.round(s*1.5)}" viewBox="0 0 40 60">
-    <line x1="20" y1="60" x2="20" y2="40" stroke="#5a8a3c" stroke-width="2.5" stroke-linecap="round"/>
-    <line x1="20" y1="48" x2="11" y2="38" stroke="#5a8a3c" stroke-width="2" stroke-linecap="round"/>
-    <line x1="20" y1="48" x2="29" y2="38" stroke="#5a8a3c" stroke-width="2" stroke-linecap="round"/>
-    <path d="M20 48 Q16 44 13 37 Q17 42 20 48Z" fill="#7db55a"/>
-    <path d="M20 48 Q24 44 27 37 Q23 42 20 48Z" fill="#5a8a3c"/>
-    <circle cx="11" cy="31" r="9" fill="${col}" opacity="0.3"/>
-    <circle cx="11" cy="31" r="7" fill="${col}" opacity="0.5"/>
-    <circle cx="11" cy="31" r="5" fill="${col}" opacity="0.75"/>
-    <circle cx="11" cy="31" r="3" fill="${col}"/>
-    <circle cx="11" cy="31" r="1.5" fill="#c4506a"/>
-    <circle cx="29" cy="31" r="8" fill="${col}" opacity="0.3"/>
-    <circle cx="29" cy="31" r="6" fill="${col}" opacity="0.5"/>
-    <circle cx="29" cy="31" r="4" fill="${col}" opacity="0.8"/>
-    <circle cx="29" cy="31" r="2.5" fill="${col}"/>
-    <circle cx="29" cy="31" r="1.2" fill="#c4506a"/>
-    <circle cx="20" cy="22" r="11" fill="${col}" opacity="0.25"/>
-    <circle cx="20" cy="22" r="8.5" fill="${col}" opacity="0.5"/>
-    <circle cx="20" cy="22" r="6" fill="${col}" opacity="0.75"/>
-    <circle cx="20" cy="22" r="4" fill="${col}"/>
-    <circle cx="20" cy="22" r="2" fill="#c4506a"/>
+  return `<svg class="plant-svg" width="${s}" height="${Math.round(s*1.8)}" viewBox="0 0 40 72">
+    <line x1="20" y1="72" x2="20" y2="50" stroke="#5a8a3c" stroke-width="2.5" stroke-linecap="round"/>
+    <line x1="20" y1="58" x2="11" y2="46" stroke="#5a8a3c" stroke-width="2" stroke-linecap="round"/>
+    <line x1="20" y1="58" x2="29" y2="46" stroke="#5a8a3c" stroke-width="2" stroke-linecap="round"/>
+    <path d="M20 58 Q16 52 13 45 Q17 50 20 58Z" fill="#7db55a"/>
+    <path d="M20 58 Q24 52 27 45 Q23 50 20 58Z" fill="#5a8a3c"/>
+    <circle cx="11" cy="38" r="9" fill="${col}" opacity="0.25"/>
+    <circle cx="11" cy="38" r="7" fill="${col}" opacity="0.5"/>
+    <circle cx="11" cy="38" r="5" fill="${col}" opacity="0.75"/>
+    <circle cx="11" cy="38" r="3" fill="${col}"/>
+    <circle cx="11" cy="38" r="1.5" fill="#c4506a"/>
+    <circle cx="29" cy="38" r="8" fill="${col}" opacity="0.25"/>
+    <circle cx="29" cy="38" r="6" fill="${col}" opacity="0.5"/>
+    <circle cx="29" cy="38" r="4" fill="${col}" opacity="0.8"/>
+    <circle cx="29" cy="38" r="2.5" fill="${col}"/>
+    <circle cx="29" cy="38" r="1.2" fill="#c4506a"/>
+    <circle cx="20" cy="28" r="11" fill="${col}" opacity="0.2"/>
+    <circle cx="20" cy="28" r="8.5" fill="${col}" opacity="0.45"/>
+    <circle cx="20" cy="28" r="6" fill="${col}" opacity="0.7"/>
+    <circle cx="20" cy="28" r="4" fill="${col}"/>
+    <circle cx="20" cy="28" r="2" fill="#c4506a"/>
   </svg>`;
 }
 
@@ -3161,10 +3145,14 @@ function renderGarden() {
   const recentDiv = document.getElementById('garden-attended-list');
   if(filtered.length > 0) {
     recentDiv.innerHTML = `<div style="font-size:0.75rem;font-weight:500;text-transform:uppercase;letter-spacing:0.06em;color:var(--ink-muted);margin-bottom:10px;">Attended this ${gardenPeriod}</div>`;
-    filtered.slice().reverse().forEach(ev => {
+    filtered.slice().reverse().forEach((ev, i) => {
+      const plantPool = catPlants[ev.category] || catPlants.other;
+      const plantFn = plantPool[filtered.length > 1 ? (filtered.length - 1 - i) % plantPool.length : 0];
+      const color = catColors[ev.category] || '#f5c842';
+      const miniPlant = plantFn(28, color);
       const d = document.createElement('div');
       d.style.cssText = 'background:#fff;border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:8px;display:flex;align-items:center;gap:10px;cursor:pointer;';
-      d.innerHTML = `<span style="font-size:1.1rem;">${{community:'🌿',music:'🎵',food:'🍜',art:'🎨',sports:'⚡',other:'✨'}[ev.category]||'✨'}</span><div style="flex:1;min-width:0;"><div style="font-size:0.9rem;font-weight:500;color:var(--ink);">${esc(ev.name)}</div><div style="font-size:0.75rem;color:var(--ink-muted);">${fmtDateFull(ev.date)}</div></div><span style="font-size:1.1rem;">🌸</span>`;
+      d.innerHTML = `<div style="flex-shrink:0;width:32px;display:flex;align-items:flex-end;justify-content:center;">${miniPlant}</div><div style="flex:1;min-width:0;"><div style="font-size:0.9rem;font-weight:500;color:var(--ink);">${esc(ev.name)}</div><div style="font-size:0.75rem;color:var(--ink-muted);">${fmtDateFull(ev.date)}</div></div>`;
       d.onclick = () => openEventDetail(ev.id);
       recentDiv.appendChild(d);
     });
