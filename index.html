@@ -2653,14 +2653,17 @@ function openEventDetail(id) {
 
 function renderEventDetail(ev) {
   const color = getPlantColor(ev.category);
-  const plantFn = getPlantFn(ev.category, ev.plantIdx);
-  const plantSvg = plantFn(36, color);
+
+  // Only show the plant if attended — otherwise show a simple category colour dot
+  const headerIcon = ev.completed
+    ? `<div style="flex-shrink:0;width:40px;display:flex;align-items:flex-end;justify-content:center;">${getPlantFn(ev.category, ev.plantIdx)(40, color)}</div>`
+    : `<div style="flex-shrink:0;width:14px;height:14px;border-radius:50%;background:${color};margin-top:6px;"></div>`;
 
   document.getElementById('event-detail-content').innerHTML = `
     ${ev.image ? `<div style="margin:0 -20px 16px;"><img src="${ev.image}" style="width:calc(100% + 40px);max-height:200px;object-fit:cover;border-radius:var(--r) var(--r) 0 0;" alt="${esc(ev.name)}"></div>` : ''}
     <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:12px;">
       <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0;">
-        <div style="flex-shrink:0;width:36px;display:flex;align-items:flex-end;justify-content:center;">${plantSvg}</div>
+        ${headerIcon}
         <h2 style="font-family:var(--font-display);font-size:1.3rem;color:var(--ink);line-height:1.2;word-break:break-word;">${esc(ev.name)}</h2>
       </div>
       <button onclick="openEditEvent('${ev.id}')" style="flex-shrink:0;background:var(--cream-dark);border:1px solid var(--border);border-radius:8px;padding:6px 12px;font-size:0.8rem;font-weight:500;color:var(--ink-light);cursor:pointer;">Edit</button>
