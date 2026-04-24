@@ -1605,16 +1605,7 @@ function toggleComplete(id) {
   if(ev.completed) {
     ev.completedAt = Date.now();
     const totalAttended = events.filter(e => e.completed).length;
-    // Assign and store the plant variant index so it's consistent everywhere
-    const catVariants = {
-      community:[sunflowerSVG,daisySVG,peonyBushSVG,lavSVG],
-      music:[lavSVG,roseSVG,peonyBushSVG,tulipSVG],
-      food:[succulentSVG,cactusRoundSVG,sunflowerSVG,daisySVG],
-      art:[monsteraSVG,pothosVineSVG,peonyBushSVG,roseSVG],
-      sports:[tulipSVG,fernSVG,daisySVG,sunflowerSVG],
-      other:[snakePlantSVG,succulentSVG,cactusRoundSVG,monsteraSVG],
-    };
-    const pool = catVariants[ev.category] || catVariants.other;
+    const pool = CAT_PLANTS[ev.category] || CAT_PLANTS.other;
     ev.plantIdx = totalAttended % pool.length;
     triggerBloomReward(ev, totalAttended);
   } else {
@@ -1624,6 +1615,36 @@ function toggleComplete(id) {
   saveEvents(currentUser.gardenId, events);
   renderWeek();
   renderCalendar();
+}
+
+// ── Single source of truth for plant pools — used everywhere ──
+const CAT_PLANTS = {
+  community: [sunflowerSVG, daisySVG, peonyBushSVG, lavSVG],
+  music:     [lavSVG, roseSVG, peonyBushSVG, tulipSVG],
+  food:      [sunflowerSVG, succulentSVG, cactusRoundSVG, daisySVG],
+  art:       [monsteraSVG, pothosVineSVG, peonyBushSVG, roseSVG],
+  sports:    [tulipSVG, fernSVG, daisySVG, sunflowerSVG],
+  other:     [snakePlantSVG, succulentSVG, cactusRoundSVG, monsteraSVG],
+};
+const CAT_COLORS = {
+  community:'#f5c842', music:'#c084d8', food:'#f0823c',
+  art:'#e8729a', sports:'#e84040', other:'#40a8e8'
+};
+const CAT_PLANT_NAMES = {
+  community:['Sunflower','Daisy','Peony','Lavender'],
+  music:    ['Lavender','Rose','Peony','Tulip'],
+  food:     ['Sunflower','Succulent','Cactus','Daisy'],
+  art:      ['Monstera','Pothos','Peony','Rose'],
+  sports:   ['Tulip','Fern','Daisy','Sunflower'],
+  other:    ['Snake plant','Succulent','Cactus','Monstera'],
+};
+
+function getPlantFn(category, plantIdx) {
+  const pool = CAT_PLANTS[category] || CAT_PLANTS.other;
+  return pool[(plantIdx || 0) % pool.length];
+}
+function getPlantColor(category) {
+  return CAT_COLORS[category] || '#f5c842';
 }
 
 // ─── BLOOM REWARD MODAL ─────────────────────────────────────────
@@ -1743,55 +1764,26 @@ function spawnModalSparkles(modal, cx, cy) {
 }
 
 function triggerBloomReward(ev, totalAttended) {
-  // ── Pick plant + copy based on category ──────────────────────
-  const catMeta = {
-    community: { fn: (s,c)=>sunflowerSVG(s,c),   title:'A sunflower blooms!',    emoji:'🌻', label:'Community event',  plantName:'Sunflower'  },
-    music:     { fn: (s,c)=>lavSVG(s,c),          title:'Lavender is blooming!',  emoji:'💜', label:'Music event',      plantName:'Lavender'   },
-    food:      { fn: (s,c)=>succulentSVG(s,c),    title:'A succulent sprouts!',   emoji:'🌵', label:'Food event',       plantName:'Succulent'  },
-    art:       { fn: (s,c)=>monsteraSVG(s,c),     title:'A monstera unfurls!',    emoji:'🌿', label:'Art event',        plantName:'Monstera'   },
-    sports:    { fn: (s,c)=>tulipSVG(s,c),        title:'A tulip pops up!',       emoji:'🌷', label:'Active event',     plantName:'Tulip'      },
-    other:     { fn: (s,c)=>snakePlantSVG(s,c),   title:'A new plant grows!',     emoji:'🪴', label:'Event',            plantName:'Snake plant'},
-  };
-  // Vary the plant within category by totalAttended so you don't get same one every time
-  const catVariants = {
-    community: [(s,c)=>sunflowerSVG(s,c),(s,c)=>daisySVG(s,c),(s,c)=>peonyBushSVG(s,c),(s,c)=>lavSVG(s,c)],
-    community_names: ['Sunflower','Daisy','Peony','Lavender'],
-    music:     [(s,c)=>lavSVG(s,c),(s,c)=>roseSVG(s,c),(s,c)=>peonyBushSVG(s,c),(s,c)=>tulipSVG(s,c)],
-    music_names: ['Lavender','Rose','Peony','Tulip'],
-    food:      [(s,c)=>succulentSVG(s,c),(s,c)=>cactusRoundSVG(s,c),(s,c)=>sunflowerSVG(s,c),(s,c)=>daisySVG(s,c)],
-    food_names: ['Succulent','Cactus','Sunflower','Daisy'],
-    art:       [(s,c)=>monsteraSVG(s,c),(s,c)=>pothosVineSVG(s,c),(s,c)=>peonyBushSVG(s,c),(s,c)=>roseSVG(s,c)],
-    art_names:  ['Monstera','Pothos','Peony','Rose'],
-    sports:    [(s,c)=>tulipSVG(s,c),(s,c)=>fernSVG(s,c),(s,c)=>daisySVG(s,c),(s,c)=>sunflowerSVG(s,c)],
-    sports_names:['Tulip','Fern','Daisy','Sunflower'],
-    other:     [(s,c)=>snakePlantSVG(s,c),(s,c)=>succulentSVG(s,c),(s,c)=>cactusRoundSVG(s,c),(s,c)=>monsteraSVG(s,c)],
-    other_names: ['Snake plant','Succulent','Cactus','Monstera'],
-  };
-
   const cat = ev.category || 'other';
-  const meta = catMeta[cat] || catMeta.other;
-  const variants = catVariants[cat] || catVariants.other;
-  const names    = catVariants[cat+'_names'] || catVariants.other_names;
-  // Use stored plantIdx if available, otherwise fall back to totalAttended
-  const idx = (ev.plantIdx !== undefined) ? ev.plantIdx : (totalAttended % variants.length);
-  const plantFn   = variants[idx];
-  const plantName = names[idx];
-  const colors = FLOWER_COLORS[cat] || FLOWER_COLORS.other;
+  const idx = ev.plantIdx !== undefined ? ev.plantIdx : 0;
+  const plantFn = getPlantFn(cat, idx);
+  const color = getPlantColor(cat);
+  const plantName = (CAT_PLANT_NAMES[cat] || CAT_PLANT_NAMES.other)[idx % 4];
 
-  // Category-specific title variants
   const bloomTitles = {
     community: ['A sunflower blooms!','Daisy days are here!','Your peony bloomed!','Lavender is growing!'],
     music:     ['Lavender is singing!','A rose for the music!','Peony in full bloom!','Your tulip bloomed!'],
-    food:      ['A succulent sprouts!','Cactus in bloom!','Sunflower for a feast!','Daisy for the table!'],
+    food:      ['Sunflower for a feast!','A succulent sprouts!','Cactus in bloom!','Daisy for the table!'],
     art:       ['A monstera unfurls!','Your pothos thrives!','Peony for the arts!','A rose blooms!'],
     sports:    ['Your tulip popped up!','Fern power!','Daisy run complete!','Sunflower energy!'],
     other:     ['A new plant grows!','Succulent strength!','Cactus persists!','Monstera moment!'],
   };
-  const titleArr = bloomTitles[cat] || bloomTitles.other;
-  const bloomTitle = titleArr[idx];
+  const bloomTitle = (bloomTitles[cat] || bloomTitles.other)[idx % 4];
+  const catLabels = {community:'Community event',music:'Music event',food:'Food event',art:'Art event',sports:'Active event',other:'Event'};
+  const catEmoji = {community:'🌿',music:'🎵',food:'🍜',art:'🎨',sports:'⚡',other:'✨'};
 
-  // Build the plant SVG at larger size for the modal
-  const plantSVGStr = plantFn(68, colors.petals);
+  const plantSVGStr = plantFn(68, color);
+  const colors = FLOWER_COLORS[cat] || FLOWER_COLORS.other;
 
   // Inject into scene
   const plantWrap = document.getElementById('bm-plant-wrap');
@@ -1799,8 +1791,7 @@ function triggerBloomReward(ev, totalAttended) {
   plantWrap.style.cssText = 'transform:scale(0);transform-origin:bottom center;transition:none;display:flex;align-items:flex-end;justify-content:center;width:100%;';
 
   // Populate text
-  const catEmoji = {community:'🌿',music:'🎵',food:'🍜',art:'🎨',sports:'⚡',other:'✨'};
-  document.getElementById('bm-cat-badge').innerHTML = `${catEmoji[cat]||'✨'} ${meta.label} · ${plantName}`;
+  document.getElementById('bm-cat-badge').innerHTML = `${catEmoji[cat]||'✨'} ${catLabels[cat]||'Event'} · ${plantName}`;
   document.getElementById('bm-title').textContent   = bloomTitle;
   document.getElementById('bm-evname').textContent  = ev.name;
   document.getElementById('bm-count').textContent   = `${totalAttended} plant${totalAttended===1?'':'s'} in your garden`;
@@ -2661,20 +2652,8 @@ function openEventDetail(id) {
 }
 
 function renderEventDetail(ev) {
-  const catColors = {community:'#f5c842',music:'#c084d8',food:'#f0823c',art:'#e8729a',sports:'#e84040',other:'#40a8e8'};
-  const catPlants = {
-    community:[sunflowerSVG,daisySVG,peonyBushSVG,lavSVG],
-    music:[lavSVG,roseSVG,peonyBushSVG,tulipSVG],
-    food:[sunflowerSVG,succulentSVG,cactusRoundSVG,daisySVG],
-    art:[monsteraSVG,pothosVineSVG,peonyBushSVG,roseSVG],
-    sports:[fernSVG,tulipSVG,daisySVG,sunflowerSVG],
-    other:[snakePlantSVG,succulentSVG,cactusRoundSVG,monsteraSVG],
-  };
-  const events = getEvents(currentUser.gardenId);
-  const evIdx = events.filter(e=>e.completed).findIndex(e=>e.id===ev.id);
-  const pool = catPlants[ev.category] || catPlants.other;
-  const plantFn = pool[(ev.plantIdx !== undefined ? ev.plantIdx : 0) % pool.length];
-  const color = catColors[ev.category] || '#f5c842';
+  const color = getPlantColor(ev.category);
+  const plantFn = getPlantFn(ev.category, ev.plantIdx);
   const plantSvg = plantFn(36, color);
 
   document.getElementById('event-detail-content').innerHTML = `
@@ -3124,16 +3103,8 @@ function renderGarden() {
   const plantRow = document.getElementById('plant-row');
   plantRow.innerHTML = '';
 
-  const catColors = {community:'#f5c842',music:'#c084d8',food:'#f0823c',art:'#e8729a',sports:'#e84040',other:'#40a8e8'};
-
-  const catPlants = {
-    community: [sunflowerSVG, daisySVG, peonyBushSVG, lavSVG],
-    music:     [lavSVG, roseSVG, peonyBushSVG, tulipSVG],
-    food:      [sunflowerSVG, succulentSVG, cactusRoundSVG, daisySVG],
-    art:       [monsteraSVG, pothosVineSVG, peonyBushSVG, roseSVG],
-    sports:    [fernSVG, tulipSVG, daisySVG, sunflowerSVG],
-    other:     [snakePlantSVG, succulentSVG, cactusRoundSVG, monsteraSVG],
-  };
+  const catColors = CAT_COLORS;
+  const catPlants = CAT_PLANTS;
 
   if(filtered.length === 0) {
     plantRow.innerHTML = `<div style="text-align:center;color:var(--moss-dark);font-size:0.85rem;font-weight:600;background:rgba(255,255,255,0.75);border-radius:12px;padding:14px 20px;border:1.5px solid rgba(255,255,255,0.9);">🌱 Attend events to grow flowers here</div>`;
