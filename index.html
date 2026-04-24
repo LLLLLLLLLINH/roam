@@ -1131,7 +1131,7 @@ function hashPass(str) {
   return h.toString(36);
 }
 
-function doSignup() {
+async function doSignup() {
   const name = document.getElementById('reg-name').value.trim();
   const username = document.getElementById('reg-username').value.trim().toLowerCase();
   const password = document.getElementById('reg-password').value;
@@ -1163,10 +1163,16 @@ function doSignup() {
       if(!gardenId) { showToast('Invalid invite link — check with your friend'); return; }
     } else {
       const code = rawInput.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,6);
+      // Check local users first
       const allGardenIds = [...new Set(Object.values(users).map(u => u.gardenId).filter(Boolean))];
       const matched = allGardenIds.find(gid => gardenCodeFromId(gid) === code);
       if(matched) { gardenId = matched; isPending = true; }
-      else { showToast('Code not found — paste the full invite link instead'); return; }
+      else {
+        // Ask server
+        const result = await apiFetch('/api/lookup-code/' + code);
+        if(result && result.gardenId) { gardenId = result.gardenId; isPending = true; }
+        else { showToast('Code not found — paste the full invite link instead'); return; }
+      }
     }
   } else {
     // Generate a permanent gardenId derived from username — never changes
@@ -3093,8 +3099,8 @@ function renderPeople() {
           <div class="member-stats">@${esc(m.username)} wants to join</div>
         </div>
         <div style="display:flex;gap:6px;flex-shrink:0;">
-          <button onclick="approveMember('${m.username}')" style="background:var(--moss);color:#fff;border:none;border-radius:6px;padding:6px 10px;font-size:0.75rem;cursor:pointer;font-weight:500;">✓ Approve</button>
-          <button onclick="denyMember('${m.username}')" style="background:transparent;color:var(--terracotta);border:1px solid var(--terracotta);border-radius:6px;padding:6px 10px;font-size:0.75rem;cursor:pointer;">✕</button>
+          <button onclick="approveMember('${m.username}')" style="background:var(--moss);color:#fff;border:none;border-radius:6px;padding:6px 12px;font-size:0.75rem;cursor:pointer;font-weight:500;">✓ Approve</button>
+          <button onclick="denyMember('${m.username}')" style="background:transparent;color:var(--terracotta);border:1.5px solid var(--terracotta);border-radius:6px;padding:6px 12px;font-size:0.75rem;cursor:pointer;font-weight:500;">Deny</button>
         </div>
       `;
       list.appendChild(div);
@@ -3157,11 +3163,18 @@ function renderPeople() {
   }
 }
 
-// ── Garden code: deterministic from gardenId, no cross-device lookup needed ──
+// ── Garden code: encodes the gardenId so no server lookup needed ──
+// gardenId format: "g_" + base36 string (e.g. "g_3kcx9mn")
+// Code: strip "g_", take first 6 chars uppercased — always decodable back
 function gardenCodeFromId(gardenId) {
   let h = 0x811c9dc5;
   for(let i = 0; i < gardenId.length; i++) { h ^= gardenId.charCodeAt(i); h = (h * 0x01000193) >>> 0; }
   return h.toString(36).toUpperCase().padStart(6,'0').slice(-6);
+}
+
+function gardenIdFromCode(code) {
+  // Can't reverse a hash — must look up via server
+  return null;
 }
 
 function approveMember(username) {
@@ -3321,23 +3334,22 @@ async function joinByCodeOrLink() {
     } catch(_) {}
     if(!gardenId) { showToast('Invalid invite link'); return; }
   } else {
-    // 6-digit code — check local users first, then ask the server
     const code = raw.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,6);
-    if(code.length < 4) { showToast('Enter a valid code'); return; }
+    if(code.length < 4) { showToast('Enter a valid 6-digit code'); return; }
 
-    // Check locally known gardens
+    // First check locally known gardens
     const users = getUsers();
-    const allGardenIds = [...new Set(Object.values(users).map(u => u.gardenId).filter(Boolean))];
-    gardenId = allGardenIds.find(gid => gardenCodeFromId(gid) === code) || null;
+    const localGardenIds = [...new Set(Object.values(users).map(u => u.gardenId).filter(Boolean))];
+    gardenId = localGardenIds.find(gid => gardenCodeFromId(gid) === code) || null;
 
-    // Not found locally — ask the server for all known gardens
+    // If not found locally, ask the server
     if(!gardenId) {
       showToast('Looking up code...');
-      const serverData = await apiFetch('/api/lookup-code/' + code);
-      if(serverData && serverData.gardenId) {
-        gardenId = serverData.gardenId;
+      const result = await apiFetch('/api/lookup-code/' + code);
+      if(result && result.gardenId) {
+        gardenId = result.gardenId;
       } else {
-        showToast('Code not found — try pasting the full invite link instead');
+        showToast('Code not found — double-check the code or use the invite link');
         return;
       }
     }
