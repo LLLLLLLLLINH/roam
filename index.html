@@ -221,11 +221,17 @@ h1,h2,h3 { font-family: var(--font-display); font-weight: 400; }
 }
 /* Sky dots / texture */
 .garden-canvas::before {
-  content: '🌤';
+  content: '';
   position: absolute;
-  top: 10px; right: 16px;
-  font-size: 1.2rem;
-  opacity: 0.5;
+  top: 12px; right: 14px;
+  width: 90px; height: 48px;
+  background: none;
+  pointer-events: none;
+}
+.garden-sky-deco {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 120px;
   pointer-events: none;
 }
 .garden-ground {
@@ -770,6 +776,34 @@ html { font-size: 14px; }
       </div>
     </div>
     <div class="garden-canvas" id="garden-canvas">
+      <!-- Sky decorations -->
+      <svg class="garden-sky-deco" viewBox="0 0 400 120" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">
+        <!-- Sun -->
+        <circle cx="52" cy="38" r="18" fill="#ffd94a"/>
+        <!-- Sun rays -->
+        <line x1="52" y1="12" x2="52" y2="6" stroke="#ffd94a" stroke-width="4" stroke-linecap="round"/>
+        <line x1="52" y1="64" x2="52" y2="70" stroke="#ffd94a" stroke-width="4" stroke-linecap="round"/>
+        <line x1="26" y1="38" x2="20" y2="38" stroke="#ffd94a" stroke-width="4" stroke-linecap="round"/>
+        <line x1="78" y1="38" x2="84" y2="38" stroke="#ffd94a" stroke-width="4" stroke-linecap="round"/>
+        <line x1="34" y1="20" x2="29" y2="15" stroke="#ffd94a" stroke-width="4" stroke-linecap="round"/>
+        <line x1="70" y1="56" x2="75" y2="61" stroke="#ffd94a" stroke-width="4" stroke-linecap="round"/>
+        <line x1="70" y1="20" x2="75" y2="15" stroke="#ffd94a" stroke-width="4" stroke-linecap="round"/>
+        <line x1="34" y1="56" x2="29" y2="61" stroke="#ffd94a" stroke-width="4" stroke-linecap="round"/>
+        <!-- Sun face -->
+        <circle cx="44" cy="34" r="2.5" fill="#e8a800"/>
+        <circle cx="60" cy="34" r="2.5" fill="#e8a800"/>
+        <path d="M44 43 Q52 49 60 43" stroke="#e8a800" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+        <!-- Cloud 1 (big, right side) -->
+        <ellipse cx="310" cy="38" rx="36" ry="22" fill="white" opacity="0.92"/>
+        <ellipse cx="284" cy="44" rx="24" ry="16" fill="white" opacity="0.92"/>
+        <ellipse cx="338" cy="46" rx="22" ry="14" fill="white" opacity="0.92"/>
+        <ellipse cx="310" cy="50" rx="36" ry="14" fill="white" opacity="0.92"/>
+        <!-- Cloud 2 (small, middle) -->
+        <ellipse cx="180" cy="28" rx="24" ry="14" fill="white" opacity="0.7"/>
+        <ellipse cx="160" cy="32" rx="16" ry="10" fill="white" opacity="0.7"/>
+        <ellipse cx="200" cy="33" rx="16" ry="10" fill="white" opacity="0.7"/>
+        <ellipse cx="180" cy="36" rx="24" ry="10" fill="white" opacity="0.7"/>
+      </svg>
       <div class="plant-row" id="plant-row"></div>
       <div class="garden-grass"></div>
       <div class="garden-ground"></div>
