@@ -1597,26 +1597,6 @@ function buildEventCard(ev) {
   return card;
 }
 
-function toggleComplete(id) {
-  const events = getEvents(currentUser.gardenId);
-  const ev = events.find(e => e.id === id);
-  if(!ev) return;
-  ev.completed = !ev.completed;
-  if(ev.completed) {
-    ev.completedAt = Date.now();
-    const totalAttended = events.filter(e => e.completed).length;
-    const pool = CAT_PLANTS[ev.category] || CAT_PLANTS.other;
-    ev.plantIdx = totalAttended % pool.length;
-    triggerBloomReward(ev, totalAttended);
-  } else {
-    ev.completedAt = null;
-    ev.plantIdx = undefined;
-  }
-  saveEvents(currentUser.gardenId, events);
-  renderWeek();
-  renderCalendar();
-}
-
 // ── Single source of truth for plant pools — used everywhere ──
 const CAT_PLANTS = {
   community: [sunflowerSVG, daisySVG, peonyBushSVG, lavSVG],
@@ -1641,10 +1621,30 @@ const CAT_PLANT_NAMES = {
 
 function getPlantFn(category, plantIdx) {
   const pool = CAT_PLANTS[category] || CAT_PLANTS.other;
-  return pool[(plantIdx || 0) % pool.length];
+  return pool[(plantIdx !== undefined && plantIdx !== null ? plantIdx : 0) % pool.length];
 }
 function getPlantColor(category) {
   return CAT_COLORS[category] || '#f5c842';
+}
+
+function toggleComplete(id) {
+  const events = getEvents(currentUser.gardenId);
+  const ev = events.find(e => e.id === id);
+  if(!ev) return;
+  ev.completed = !ev.completed;
+  if(ev.completed) {
+    ev.completedAt = Date.now();
+    const totalAttended = events.filter(e => e.completed).length;
+    const pool = CAT_PLANTS[ev.category] || CAT_PLANTS.other;
+    ev.plantIdx = totalAttended % pool.length;
+    triggerBloomReward(ev, totalAttended);
+  } else {
+    ev.completedAt = null;
+    ev.plantIdx = undefined;
+  }
+  saveEvents(currentUser.gardenId, events);
+  renderWeek();
+  renderCalendar();
 }
 
 // ─── BLOOM REWARD MODAL ─────────────────────────────────────────
