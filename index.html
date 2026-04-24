@@ -212,7 +212,8 @@ h1,h2,h3 { font-family: var(--font-display); font-weight: 400; }
   border: 2px solid #9dc498;
   border-radius: 20px;
   margin-bottom: 20px;
-  min-height: 280px;
+  min-height: 320px;
+  height: 320px;
   position: relative;
   overflow: hidden;
   padding: 0;
@@ -247,14 +248,15 @@ h1,h2,h3 { font-family: var(--font-display); font-weight: 400; }
 }
 .plant-row {
   position: absolute;
-  bottom: 62px; left: 0; right: 0;
+  bottom: 66px; left: 0; right: 0;
   display: flex;
   align-items: flex-end;
   justify-content: center;
   gap: 10px;
   padding: 0 16px;
   flex-wrap: wrap;
-  max-height: 200px;
+  max-height: 230px;
+  overflow: visible;
 }
 .plant-item { display: flex; flex-direction: column; align-items: center; cursor: pointer; transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1); }
 .plant-item:hover { transform: scale(1.12) translateY(-4px); }
@@ -379,7 +381,7 @@ html { font-size: 14px; }
 .cat-grid { grid-template-columns: repeat(3,1fr); gap: 6px; }
 .cat-item { padding: 8px 4px; font-size: 0.75rem; }
 .cat-emoji { font-size: 1rem; }
-.garden-canvas { min-height: 300px; }
+.garden-canvas { min-height: 340px; height: 340px; }
 .stat-num { font-size: 1.5rem; }
 .garden-stats { gap: 8px; }
 .step-logo { font-size: 2rem; }
@@ -402,7 +404,7 @@ html { font-size: 14px; }
   .modal-title { font-size: 1.3rem; }
   .cat-item { padding: 10px 6px; font-size: 0.78rem; }
   .cat-emoji { font-size: 1.1rem; }
-  .garden-canvas { min-height: 260px; }
+  .garden-canvas { min-height: 320px; height: 320px; }
   .stat-num { font-size: 1.6rem; }
   .step-logo { font-size: 2.2rem; }
   .step-title { font-size: 1.5rem; }
@@ -421,7 +423,7 @@ html { font-size: 14px; }
   .modal { padding: 0 18px 30px; }
   .cat-item { padding: 10px 8px; font-size: 0.8rem; }
   .cat-emoji { font-size: 1.2rem; }
-  .garden-canvas { min-height: 280px; }
+  .garden-canvas { min-height: 320px; height: 320px; }
   .stat-num { font-size: 1.8rem; }
   .step-logo { font-size: 2.4rem; }
   .step-title { font-size: 1.6rem; }
@@ -443,7 +445,7 @@ html { font-size: 14px; }
   .modal-title { font-size: 1.4rem; }
   .cat-grid { gap: 8px; }
   .cat-item { padding: 12px 8px; font-size: 0.82rem; }
-  .garden-canvas { min-height: 300px; }
+  .garden-canvas { min-height: 340px; height: 340px; }
   .stat-num { font-size: 2rem; }
   .garden-stats { gap: 10px; }
   .nav-item { font-size: 10.5px; }
@@ -3078,9 +3080,8 @@ function renderGarden() {
   const plantRow = document.getElementById('plant-row');
   plantRow.innerHTML = '';
 
-  const catColors = {community:'#7A9E7E',music:'#B4A8D4',food:'#E8C84A',art:'#E8B99A',sports:'#C4714A',other:'#9FCDE8'};
+  const catColors = {community:'#f5c842',music:'#c084d8',food:'#f0823c',art:'#e8729a',sports:'#e84040',other:'#40a8e8'};
 
-  // Map category → preferred plant function, with variety by index
   const catPlants = {
     community: [sunflowerSVG, daisySVG, peonyBushSVG, lavSVG],
     music:     [lavSVG, roseSVG, peonyBushSVG, tulipSVG],
@@ -3096,16 +3097,11 @@ function renderGarden() {
     filtered.forEach((ev, i) => {
       const plantPool = catPlants[ev.category] || catPlants.other;
       const plantFn = plantPool[i % plantPool.length];
-      const color = catColors[ev.category] || '#E8C84A';
-      // Vary sizes slightly for a natural, non-rigid look
-      const baseSize = Math.min(38, 24 + Math.floor(filtered.length <= 4 ? 10 : filtered.length <= 8 ? 6 : 3));
-      const sizeVariation = [0, 4, -2, 6, -4, 2, 8, -6][i % 8];
-      const size = Math.max(22, Math.min(44, baseSize + sizeVariation));
+      const color = catColors[ev.category] || '#f5c842';
+      const count = filtered.length;
+      const size = count <= 2 ? 48 : count <= 4 ? 40 : count <= 7 ? 34 : count <= 10 ? 28 : 22;
       const div = document.createElement('div');
       div.className = 'plant-item';
-      // Slight random-ish vertical offset for natural stagger
-      const nudge = [-3, 2, -5, 4, 0, -2, 6, -4][i % 8];
-      div.style.marginBottom = nudge + 'px';
       div.innerHTML = plantFn(size, color);
       div.title = ev.name;
       div.onclick = () => openEventDetail(ev.id);
