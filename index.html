@@ -208,7 +208,7 @@ h1,h2,h3 { font-family: var(--font-display); font-weight: 400; }
 .period-tab.active { background: #fff; color: var(--moss); box-shadow: 0 1px 3px var(--shadow); }
 
 .garden-canvas {
-  background: linear-gradient(180deg, #e8f5e4 0%, #d4ecd0 40%, #c2e0bc 70%, #a8d4a2 100%);
+  background: linear-gradient(180deg, #dff0fa 0%, #c8e8f5 35%, #b8dff0 60%, #a8d4a2 85%, #8fbe94 100%);
   border: 2px solid #9dc498;
   border-radius: 20px;
   margin-bottom: 20px;
@@ -3085,7 +3085,7 @@ function renderGarden() {
       // Slight random-ish vertical offset for natural stagger
       const nudge = [-3, 2, -5, 4, 0, -2, 6, -4][i % 8];
       div.style.marginBottom = nudge + 'px';
-      div.innerHTML = plantFn(size, color) + `<div class="plant-label">${esc(ev.name)}</div>`;
+      div.innerHTML = plantFn(size, color);
       div.title = ev.name;
       div.onclick = () => openEventDetail(ev.id);
       plantRow.appendChild(div);
