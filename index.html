@@ -990,11 +990,29 @@ async function pullGardenUsers(gardenId) {
   }
 
   // Merge server users into local store
+  // Track previous member count to detect leaves
+  const prevMembers = Object.values(local).filter(u => u.gardenId === gardenId && !u.pending).map(u => u.username).sort().join(',');
+
   for(const u of serverUsers) {
     const existing = local[u.username];
     local[u.username] = { ...u, password: existing?.password || '' };
   }
+
+  // Remove local users that are no longer on server for this garden
+  for(const [uname, u] of Object.entries(local)) {
+    if(u.gardenId === gardenId && !serverUsers.find(su => su.username === uname)) {
+      delete local[uname];
+    }
+  }
+
   DB.set('users', local);
+
+  // Detect membership changes (someone left or was removed) — re-render people list
+  const newMembers = serverUsers.filter(u => !u.pending).map(u => u.username).sort().join(',');
+  if(newMembers !== prevMembers) {
+    const activeTab = document.querySelector('.tab-content.active');
+    if(activeTab?.id === 'tab-profile') renderPeople();
+  }
 
   // Also update currentUser's pending/approved status from server
   const serverSelf = serverUsers.find(u => u.username === currentUser.username);
@@ -3377,12 +3395,18 @@ async function joinByCodeOrLink() {
 function leaveGarden() {
   if(!confirm('Leave this garden? You\'ll lose access to the shared calendar and events.')) return;
   const users = getUsers();
-  const gid = currentUser.gardenId;
+  const oldGardenId = currentUser.gardenId;
+
+  // Delete from server first
+  apiFetch('/api/garden/' + oldGardenId + '/user/' + currentUser.username, { method: 'DELETE' });
+
+  // Create a new solo garden using deterministic gardenId from username
+  let h = 0x811c9dc5;
+  const salt = currentUser.username + '_solo';
+  for(let i = 0; i < salt.length; i++) { h ^= salt.charCodeAt(i); h = (h * 0x01000193) >>> 0; }
+  const newGardenId = 'g_' + h.toString(36);
+
   delete users[currentUser.username];
-  saveUsers(users);
-  apiFetch('/api/garden/' + gid + '/user/' + currentUser.username, { method: 'DELETE' });
-  // Create a new solo garden for them
-  const newGardenId = 'g_' + Math.random().toString(36).substr(2,9);
   currentUser.gardenId = newGardenId;
   currentUser.isOwner = true;
   currentUser.pending = false;
@@ -3390,6 +3414,7 @@ function leaveGarden() {
   saveUsers(users);
   setCurrentUser(currentUser);
   pushUserToServer(currentUser);
+  lastEventHash = '';
   showToast('You\'ve left the garden 🌿');
   renderWeek(); renderCalendar(); renderGarden(); renderPeople(); renderProfile();
 }
