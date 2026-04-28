@@ -240,25 +240,38 @@ wss.on('connection', (ws, req) => {
   ws.on('error', () => ws.close());
 });
 
-// ── Server-side URL fetch (bypasses CORS for Eventbrite etc) ──
+// ── Server-side URL fetch (bypasses CORS for Eventbrite, Humanitix etc) ──
 app.get('/api/fetch-event-url', async (req, res) => {
   const url = req.query.url;
   if(!url) return res.status(400).json({ error: 'No URL' });
   try {
     const r = await fetch(url, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; Googlebot/2.1)',
-        'Accept': 'text/html,application/xhtml+xml',
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'application/json,text/html,*/*',
         'Accept-Language': 'en-AU,en;q=0.9',
+        'Origin': 'https://www.eventbrite.com.au',
+        'Referer': 'https://www.eventbrite.com.au/',
       },
       redirect: 'follow',
-      signal: AbortSignal.timeout(8000),
+      signal: AbortSignal.timeout(10000),
     });
-    if(!r.ok) return res.status(r.status).json({ error: 'Fetch failed' });
+    if(!r.ok) return res.status(r.status).json({ error: 'Fetch failed', status: r.status });
+
+    const contentType = r.headers.get('content-type') || '';
+
+    if(contentType.includes('application/json')) {
+      // Return JSON APIs directly
+      const data = await r.json();
+      return res.json({ ok: true, json: data });
+    }
+
     const html = await r.text();
-    // Only return meta/script tags to keep response small
+    // Extract meta, scripts, title for HTML pages
     const meta = (html.match(/<meta[^>]+>/gi)||[]).join('\n');
-    const scripts = (html.match(/<script[^>]*>[\s\S]{10,5000}?<\/script>/gi)||[]).slice(0,8).join('\n');
+    const scripts = (html.match(/<script[^>]*type="application\/json"[^>]*>([\s\S]*?)<\/script>/gi)||[])
+      .concat(html.match(/<script[^>]*>([\s\S]{50,8000}?)<\/script>/gi)||[])
+      .slice(0,10).join('\n');
     const title = (html.match(/<title[^>]*>([^<]+)<\/title>/i)||[])[1]||'';
     res.json({ meta, scripts, title, ok: true });
   } catch(e) {
