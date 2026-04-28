@@ -376,7 +376,9 @@ app.get('/api/explore-events', async (req, res) => {
       ];
       const seenKeys = new Set();
       for(const q of queries) {
-        const url = `https://serpapi.com/search.json?engine=google_events&q=${encodeURIComponent(q)}&location=${encodeURIComponent(location+', Australia')}&hl=en&gl=au&htichips=date:${whenParam}&api_key=${SERPAPI_KEY}`;
+        const cityName = deriveRACity(location, lat, lng);
+        const cityLabel = cityName === "australia" ? location : cityName.charAt(0).toUpperCase()+cityName.slice(1)+", Australia";
+        const url = `https://serpapi.com/search.json?engine=google_events&q=${encodeURIComponent(q.replace(location, cityLabel))}&hl=en&gl=au&htichips=date:${whenParam}&api_key=${SERPAPI_KEY}`;
         const r = await fetchSafe(url, {}, 10000);
         if(!r?.ok) { console.log('SerpAPI status:', r?.status); continue; }
         const data = await r.json();
@@ -419,7 +421,7 @@ app.get('/api/explore-events', async (req, res) => {
           },
           pageSize: 15,
           page: 1,
-          sort: { listingDate: 'ASCENDING' }
+          sort: { listingDate: 'ASCENDING', order: 'ASCENDING' }
         },
         query: `query GET_EVENT_LISTINGS($filters: FilterInputDtoInput, $pageSize: Int, $page: Int, $sort: SortInputDtoInput) {
           eventListings(filters: $filters, pageSize: $pageSize, page: $page, sort: $sort) {
@@ -604,10 +606,11 @@ app.get('/api/explore-events', async (req, res) => {
     } catch(e) { console.log('Meetup:', e.message); }
   };
 
-  // ── 5. Humanitix ──────────────────────────────────────────────
+  // ── 5. Humanitix — scrape city events page ────────────────────
   const fetchHumanitix = async () => {
     try {
-      const url = `https://events.humanitix.com/api/v1/events/search?lat=${lat}&lng=${lng}&radius=30&startDate=${startDate}T00:00:00&endDate=${endDate}T23:59:59&limit=15&status=published`;
+      const citySlug2 = deriveRACity(location, lat, lng);
+      const url = `https://events.humanitix.com/api/v2/events?city=${citySlug2}&startAfter=${startDate}&limit=15`;
       const r = await fetchSafe(url, {
         headers: { 'Accept': 'application/json', 'User-Agent': 'Mozilla/5.0' }
       }, 8000);
