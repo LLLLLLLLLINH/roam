@@ -200,7 +200,75 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// ── WebSocket real-time sync ───────────────────────────────────
+// ── Debug: test SerpAPI key ────────────────────────────────────
+app.get('/api/debug-explore', async (req, res) => {
+  const SERPAPI_KEY = process.env.SERPAPI_KEY || '';
+  const lat = req.query.lat || '-33.8975';
+  const lng = req.query.lng || '151.1759';
+  const label = req.query.label || 'Newtown, Sydney';
+
+  const debug = {
+    serpapi_key_set: !!SERPAPI_KEY,
+    serpapi_key_prefix: SERPAPI_KEY ? SERPAPI_KEY.slice(0,8)+'...' : 'NOT SET',
+    lat, lng, label,
+    results: {}
+  };
+
+  if(SERPAPI_KEY) {
+    try {
+      const url = `https://serpapi.com/search.json?engine=google_events&q=${encodeURIComponent('events near '+label)}&location=${encodeURIComponent(label+', Australia')}&hl=en&gl=au&api_key=${SERPAPI_KEY}`;
+      const r = await fetch(url, { signal: AbortSignal.timeout(10000) });
+      debug.results.serpapi_status = r.status;
+      if(r.ok) {
+        const data = await r.json();
+        debug.results.serpapi_count = data.events_results?.length || 0;
+        debug.results.serpapi_sample = data.events_results?.slice(0,2).map(e=>({title:e.title,date:e.date?.start_date})) || [];
+        debug.results.error = data.error || null;
+      } else {
+        debug.results.serpapi_error = await r.text();
+      }
+    } catch(e) {
+      debug.results.serpapi_exception = e.message;
+    }
+  }
+
+  // Test Meetup
+  try {
+    const r = await fetch('https://www.meetup.com/gql', {
+      method:'POST',
+      headers:{'Content-Type':'application/json','Accept':'application/json','User-Agent':'Mozilla/5.0'},
+      body: JSON.stringify({
+        operationName:'recommendedEventsWithSeries',
+        variables:{first:5,lat:parseFloat(lat),lon:parseFloat(lng),radius:30,startDateRange:new Date().toISOString().slice(0,10)+'T00:00:00',endDateRange:new Date(Date.now()+30*86400000).toISOString().slice(0,10)+'T23:59:59',eventType:'PHYSICAL'},
+        query:`query recommendedEventsWithSeries($lat:Float!,$lon:Float!,$radius:Int,$first:Int,$startDateRange:ZonedDateTime,$endDateRange:ZonedDateTime,$eventType:EventType){result:recommendedEvents(filter:{lat:$lat,lon:$lon,radius:$radius,startDateRange:$startDateRange,endDateRange:$endDateRange,eventType:$eventType},first:$first){edges{node{id title dateTime eventUrl isFree venue{name city}}}}}`
+      }),
+      signal: AbortSignal.timeout(8000)
+    });
+    debug.results.meetup_status = r.status;
+    if(r.ok) {
+      const data = await r.json();
+      debug.results.meetup_count = data?.data?.result?.edges?.length || 0;
+      debug.results.meetup_sample = data?.data?.result?.edges?.slice(0,2).map(e=>({title:e.node?.title,date:e.node?.dateTime?.slice(0,10)})) || [];
+    }
+  } catch(e) { debug.results.meetup_exception = e.message; }
+
+  // Test Humanitix
+  try {
+    const r = await fetch(`https://events.humanitix.com/api/v1/events/search?lat=${lat}&lng=${lng}&radius=30&startDate=${new Date().toISOString().slice(0,10)}T00:00:00&limit=5&status=published`, {
+      headers:{'Accept':'application/json','User-Agent':'Mozilla/5.0'},
+      signal: AbortSignal.timeout(8000)
+    });
+    debug.results.humanitix_status = r.status;
+    if(r.ok) {
+      const data = await r.json();
+      debug.results.humanitix_count = data?.events?.length || 0;
+    }
+  } catch(e) { debug.results.humanitix_exception = e.message; }
+
+  res.json(debug);
+});
+
+
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server, path: '/ws' });
 
@@ -292,36 +360,31 @@ app.get('/api/explore-events', async (req, res) => {
 
   const fetchSafe = async (url, opts={}, ms=12000) => {
     try { return await fetch(url, { ...opts, signal: AbortSignal.timeout(ms) }); }
-    catch(_) { return null; }
+    catch(e) { return null; }
   };
 
-  const HEADERS_BROWSER = {
-    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-    'Accept-Language': 'en-AU,en;q=0.9',
-    'Accept-Encoding': 'gzip, deflate, br',
-    'Cache-Control': 'no-cache',
-  };
-
-  // ── 1. SerpAPI Google Events (optional, best source) ──────────
+  // ── 1. SerpAPI — indexes Google Events, Facebook, councils ────
   const fetchGoogle = async () => {
-    if(!SERPAPI_KEY) return;
+    if(!SERPAPI_KEY) { console.log('Google: no SERPAPI_KEY set'); return; }
     try {
       const whenParam = when==='weekend' ? 'this_weekend' : when==='week' ? 'next_week' : 'next_month';
       const queries = [
-        `free events ${location}`, `markets ${location}`,
-        `community events ${location}`, `things to do ${location}`,
+        `free events ${location}`,
+        `markets ${location}`,
+        `community events ${location}`,
+        `things to do ${location}`,
       ];
-      const seen = new Set();
+      const seenKeys = new Set();
       for(const q of queries) {
         const url = `https://serpapi.com/search.json?engine=google_events&q=${encodeURIComponent(q)}&location=${encodeURIComponent(location+', Australia')}&hl=en&gl=au&htichips=date:${whenParam}&api_key=${SERPAPI_KEY}`;
-        const r = await fetchSafe(url, {}, 8000);
-        if(!r?.ok) continue;
+        const r = await fetchSafe(url, {}, 10000);
+        if(!r?.ok) { console.log('SerpAPI status:', r?.status); continue; }
         const data = await r.json();
+        if(data.error) { console.log('SerpAPI error:', data.error); continue; }
         for(const e of (data.events_results||[]).slice(0,10)) {
           if(!e.title) continue;
-          const key = e.title.toLowerCase().slice(0,30);
-          if(seen.has(key)) continue; seen.add(key);
+          const key = e.title.toLowerCase().replace(/\s/g,'').slice(0,25);
+          if(seenKeys.has(key)) continue; seenKeys.add(key);
           results.push({
             id: 'g_'+Buffer.from(e.title+(e.date?.start_date||'')).toString('base64').slice(0,14),
             name: e.title,
@@ -342,175 +405,244 @@ app.get('/api/explore-events', async (req, res) => {
     } catch(e) { console.log('SerpAPI:', e.message); }
   };
 
-  // ── 2. Resident Advisor (no key, GraphQL) ─────────────────────
+  // ── 2. Resident Advisor — updated GraphQL query ───────────────
   const fetchRA = async () => {
     try {
       const citySlug = deriveRACity(location, lat, lng);
+      // Updated RA GraphQL query format
+      const body = {
+        operationName: 'GET_EVENT_LISTINGS',
+        variables: {
+          filters: {
+            areas: { slug: citySlug },
+            listingDate: { gte: startDate, lte: endDate }
+          },
+          pageSize: 15,
+          page: 1,
+          sort: { listingDate: 'ASCENDING' }
+        },
+        query: `query GET_EVENT_LISTINGS($filters: FilterInputDtoInput, $pageSize: Int, $page: Int, $sort: SortInputDtoInput) {
+          eventListings(filters: $filters, pageSize: $pageSize, page: $page, sort: $sort) {
+            data {
+              id
+              event {
+                id title date startTime endTime cost contentUrl
+                images { filename }
+                venue { name area { name } }
+                artists { name }
+                pick { blurb }
+              }
+            }
+          }
+        }`
+      };
       const r = await fetchSafe('https://ra.co/graphql', {
-        method:'POST',
-        headers:{'Content-Type':'application/json','Accept':'application/json','User-Agent':'Mozilla/5.0','Referer':'https://ra.co','Origin':'https://ra.co'},
-        body: JSON.stringify({
-          query:`query{eventListings(filters:{areas:{slug:"${citySlug}"},listingDate:{gte:"${startDate}",lte:"${endDate}"}},pageSize:15,page:1,sort:{startTime:ASCENDING}){data{event{id title date startTime images{filename}venue{name area{name}}pick{blurb}artists{name}cost contentUrl}}}}`,
-          variables:{}
-        })
-      });
-      if(!r?.ok) return;
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36',
+          'Referer': 'https://ra.co/events/au/' + citySlug,
+          'Origin': 'https://ra.co',
+          'ra-content-language': 'en',
+        },
+        body: JSON.stringify(body)
+      }, 10000);
+      if(!r?.ok) { console.log('RA status:', r?.status); return; }
       const data = await r.json();
-      for(const item of (data?.data?.eventListings?.data||[])) {
-        const e=item.event; if(!e?.title) continue;
-        const dt=e.startTime||e.date||'';
+      if(data.errors) { console.log('RA GQL error:', JSON.stringify(data.errors[0])); return; }
+      const listings = data?.data?.eventListings?.data || [];
+      for(const item of listings) {
+        const e = item.event; if(!e?.title) continue;
+        const dt = e.startTime || e.date || '';
+        const artists = (e.artists||[]).map(a=>a.name).filter(Boolean);
         results.push({
-          id:'ra_'+e.id, name:e.title,
-          date:dt.slice(0,10), time:dt.length>10?dt.slice(11,16):null,
-          location:[e.venue?.name,e.venue?.area?.name].filter(Boolean).join(', '),
-          suburb:e.venue?.area?.name||location, category:'music',
-          url:e.contentUrl?'https://ra.co'+e.contentUrl:'https://ra.co/events',
-          image:e.images?.[0]?.filename?'https://ra.co'+e.images[0].filename:null,
-          description:[e.pick?.blurb,(e.artists||[]).map(a=>a.name).filter(Boolean).join(', ')].filter(Boolean).join('\nArtists: '),
-          priceRange:e.cost||null, source:'Resident Advisor'
+          id: 'ra_'+e.id, name: e.title,
+          date: dt.slice(0,10), time: dt.length>10 ? dt.slice(11,16) : null,
+          location: [e.venue?.name, e.venue?.area?.name].filter(Boolean).join(', '),
+          suburb: e.venue?.area?.name || location, category: 'music',
+          url: e.contentUrl ? 'https://ra.co'+e.contentUrl : 'https://ra.co/events',
+          image: e.images?.[0]?.filename ? 'https://ra.co'+e.images[0].filename : null,
+          description: [e.pick?.blurb, artists.length ? 'Artists: '+artists.join(', ') : null].filter(Boolean).join('\n\n'),
+          priceRange: e.cost || null, source: 'Resident Advisor'
         });
       }
       console.log('RA:', results.filter(r=>r.source==='Resident Advisor').length);
     } catch(e) { console.log('RA:', e.message); }
   };
 
-  // ── 3. Meetup GraphQL (no key needed for public events) ───────
+  // ── 3. Eventbrite — scrape search results page ────────────────
+  const fetchEventbrite = async () => {
+    try {
+      const city = deriveEBCity(location, lat, lng);
+      const categories = ['free--events', 'community--events', 'food-and-drink--events', 'arts--events'];
+      for(const cat of categories) {
+        const url = `https://www.eventbrite.com.au/d/australia--${city}/${cat}/?start_date=${startDate}&end_date=${endDate}`;
+        const r = await fetchSafe(url, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept-Language': 'en-AU,en;q=0.9',
+            'Accept-Encoding': 'gzip, deflate, br',
+          }
+        }, 15000);
+        if(!r?.ok) { console.log(`EB ${cat}: ${r?.status}`); continue; }
+        const html = await r.text();
+
+        // Try JSON-LD first (most reliable)
+        let found = 0;
+        for(const m of html.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/gi)) {
+          try {
+            const raw = JSON.parse(m[1]);
+            const items = Array.isArray(raw) ? raw : (raw['@graph'] || [raw]);
+            for(const item of items) {
+              if(item['@type'] !== 'Event' || !item.name) continue;
+              const dt = item.startDate || '';
+              results.push({
+                id: 'eb_'+Buffer.from(item.name+(dt||'')).toString('base64').slice(0,14),
+                name: item.name, date: dt.slice(0,10),
+                time: dt.length>10 ? dt.slice(11,16) : null,
+                location: [item.location?.name, item.location?.address?.streetAddress, item.location?.address?.addressLocality].filter(Boolean).join(', '),
+                suburb: item.location?.address?.addressLocality,
+                category: guessCategory(item.name+' '+(item.description||'')),
+                url: item.url,
+                image: Array.isArray(item.image) ? item.image[0] : item.image,
+                description: (item.description||'').replace(/<[^>]*>/g,'').slice(0,400),
+                priceRange: item.offers?.price!=null ? (parseFloat(item.offers.price)===0 ? 'Free' : '$'+parseFloat(item.offers.price).toFixed(0)) : null,
+                source: 'Eventbrite'
+              });
+              found++;
+            }
+          } catch(_) {}
+        }
+
+        // Try __SERVER_DATA__ if no JSON-LD
+        if(found === 0) {
+          const sdM = html.match(/window\.__SERVER_DATA__\s*=\s*({.+?});\s*(?:window\.|<\/script>)/s);
+          if(sdM) {
+            try {
+              const sd = JSON.parse(sdM[1]);
+              const evs = sd?.search_data?.events?.results || sd?.events?.results || [];
+              for(const e of evs.slice(0,10)) {
+                if(!e.name || !e.start_date) continue;
+                results.push({
+                  id: 'eb2_'+e.id, name: e.name, date: e.start_date,
+                  time: e.start_time?.slice(0,5),
+                  location: [e.primary_venue?.name, e.primary_venue?.address?.city].filter(Boolean).join(', '),
+                  suburb: e.primary_venue?.address?.city,
+                  category: guessCategory(e.name),
+                  url: e.url, image: e.image?.url,
+                  description: e.summary || '',
+                  priceRange: e.is_free ? 'Free' : null,
+                  source: 'Eventbrite'
+                });
+                found++;
+              }
+            } catch(_) {}
+          }
+        }
+
+        if(found > 0) break; // Got results, no need to try other categories
+      }
+      console.log('Eventbrite:', results.filter(r=>r.source==='Eventbrite').length);
+    } catch(e) { console.log('Eventbrite:', e.message); }
+  };
+
+  // ── 4. Meetup — try multiple endpoints ────────────────────────
   const fetchMeetup = async () => {
     try {
-      const r = await fetchSafe('https://www.meetup.com/gql', {
-        method:'POST',
-        headers:{'Content-Type':'application/json','Accept':'application/json','User-Agent':'Mozilla/5.0'},
-        body: JSON.stringify({
-          operationName:'recommendedEventsWithSeries',
-          variables:{first:20,lat:parseFloat(lat),lon:parseFloat(lng),radius:30,startDateRange:startDate+'T00:00:00',endDateRange:endDate+'T23:59:59',eventType:'PHYSICAL'},
-          query:`query recommendedEventsWithSeries($lat:Float!,$lon:Float!,$radius:Int,$first:Int,$startDateRange:ZonedDateTime,$endDateRange:ZonedDateTime,$eventType:EventType){result:recommendedEvents(filter:{lat:$lat,lon:$lon,radius:$radius,startDateRange:$startDateRange,endDateRange:$endDateRange,eventType:$eventType},first:$first){edges{node{id title dateTime description{html}venue{name city}eventUrl isFree images{baseUrl}group{name}topics{name}}}}}`
-        })
-      }, 8000);
-      if(!r?.ok) return;
-      const data = await r.json();
-      for(const edge of (data?.data?.result?.edges||[])) {
-        const e=edge.node; if(!e?.title) continue;
-        const dt=e.dateTime||'';
-        results.push({
-          id:'mu_'+e.id, name:e.title,
-          date:dt.slice(0,10), time:dt.slice(11,16)||null,
-          location:[e.venue?.name,e.venue?.city].filter(Boolean).join(', '),
-          suburb:e.venue?.city||location,
-          category:guessCategory((e.topics||[]).map(t=>t.name).join(' ')+' '+e.title),
-          url:e.eventUrl, image:e.images?.[0]?.baseUrl,
-          description:[(e.description?.html||'').replace(/<[^>]*>/g,'').slice(0,300),e.group?.name?'Organised by: '+e.group.name:null].filter(Boolean).join('\n'),
-          priceRange:e.isFree?'Free':null, source:'Meetup'
-        });
+      // Try the newer GQL endpoint
+      const body = JSON.stringify({
+        operationName: 'recommendedEventsWithSeries',
+        variables: {
+          first: 20, lat: parseFloat(lat), lon: parseFloat(lng),
+          radius: 30,
+          startDateRange: startDate + 'T00:00:00',
+          endDateRange: endDate + 'T23:59:59',
+          eventType: 'PHYSICAL'
+        },
+        extensions: { persistedQuery: { version: 1, sha256Hash: '' } },
+        query: `query recommendedEventsWithSeries($lat:Float,$lon:Float,$radius:Int,$first:Int,$startDateRange:ZonedDateTime,$endDateRange:ZonedDateTime,$eventType:EventType){result:recommendedEvents(filter:{lat:$lat,lon:$lon,radius:$radius,startDateRange:$startDateRange,endDateRange:$endDateRange,eventType:$eventType},first:$first){edges{node{id title dateTime description{html}venue{name city}eventUrl isFree images{baseUrl}group{name}topics{name}}}}}`
+      });
+
+      const endpoints = [
+        'https://www.meetup.com/gql',
+        'https://api.meetup.com/gql2',
+      ];
+
+      for(const endpoint of endpoints) {
+        const r = await fetchSafe(endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36',
+          },
+          body
+        }, 8000);
+        if(!r?.ok) { console.log('Meetup endpoint', endpoint, 'status:', r?.status); continue; }
+        const data = await r.json();
+        const edges = data?.data?.result?.edges || [];
+        if(edges.length === 0) continue;
+        for(const edge of edges) {
+          const e = edge.node; if(!e?.title) continue;
+          const dt = e.dateTime || '';
+          results.push({
+            id: 'mu_'+e.id, name: e.title,
+            date: dt.slice(0,10), time: dt.slice(11,16)||null,
+            location: [e.venue?.name, e.venue?.city].filter(Boolean).join(', '),
+            suburb: e.venue?.city || location,
+            category: guessCategory((e.topics||[]).map(t=>t.name).join(' ')+' '+e.title),
+            url: e.eventUrl, image: e.images?.[0]?.baseUrl,
+            description: [(e.description?.html||'').replace(/<[^>]*>/g,'').slice(0,300), e.group?.name ? 'Group: '+e.group.name : null].filter(Boolean).join('\n'),
+            priceRange: e.isFree ? 'Free' : null, source: 'Meetup'
+          });
+        }
+        break;
       }
       console.log('Meetup:', results.filter(r=>r.source==='Meetup').length);
     } catch(e) { console.log('Meetup:', e.message); }
   };
 
-  // ── 4. Humanitix public search (Australian platform) ──────────
+  // ── 5. Humanitix ──────────────────────────────────────────────
   const fetchHumanitix = async () => {
     try {
       const url = `https://events.humanitix.com/api/v1/events/search?lat=${lat}&lng=${lng}&radius=30&startDate=${startDate}T00:00:00&endDate=${endDate}T23:59:59&limit=15&status=published`;
-      const r = await fetchSafe(url, {headers:{'Accept':'application/json','User-Agent':'Mozilla/5.0'}}, 8000);
-      if(!r?.ok) return;
+      const r = await fetchSafe(url, {
+        headers: { 'Accept': 'application/json', 'User-Agent': 'Mozilla/5.0' }
+      }, 8000);
+      if(!r) { console.log('Humanitix: no response'); return; }
+      console.log('Humanitix status:', r.status);
+      if(!r.ok) return;
       const data = await r.json();
       for(const e of (data.events||[]).slice(0,15)) {
         if(!e.name) continue;
         results.push({
-          id:'hx_'+e._id, name:e.name,
-          date:e.startDate?.slice(0,10), time:e.startDate?.slice(11,16),
-          location:[e.location?.name,e.location?.suburb,e.location?.state].filter(Boolean).join(', '),
-          suburb:e.location?.suburb,
-          category:guessCategory((e.tags||[]).join(' ')+' '+e.name),
-          url:'https://events.humanitix.com/'+e.slug, image:e.coverImage?.url,
-          description:(e.description||'').replace(/<[^>]*>/g,'').slice(0,400),
-          priceRange:e.isFree?'Free':(e.minPrice?'$'+e.minPrice+(e.maxPrice&&e.maxPrice!==e.minPrice?'–$'+e.maxPrice:''):null),
-          source:'Humanitix'
+          id: 'hx_'+e._id, name: e.name,
+          date: e.startDate?.slice(0,10), time: e.startDate?.slice(11,16),
+          location: [e.location?.name, e.location?.suburb, e.location?.state].filter(Boolean).join(', '),
+          suburb: e.location?.suburb,
+          category: guessCategory((e.tags||[]).join(' ')+' '+e.name),
+          url: 'https://events.humanitix.com/'+e.slug, image: e.coverImage?.url,
+          description: (e.description||'').replace(/<[^>]*>/g,'').slice(0,400),
+          priceRange: e.isFree ? 'Free' : (e.minPrice ? '$'+e.minPrice+(e.maxPrice&&e.maxPrice!==e.minPrice?'–$'+e.maxPrice:'') : null),
+          source: 'Humanitix'
         });
       }
       console.log('Humanitix:', results.filter(r=>r.source==='Humanitix').length);
     } catch(e) { console.log('Humanitix:', e.message); }
   };
 
-  // ── 5. Eventbrite via search API (no key for public events) ───
-  const fetchEventbrite = async () => {
-    try {
-      const city = deriveEBCity(location, lat, lng);
-      // Use Eventbrite's internal search endpoint that works without auth
-      const ebUrl = `https://www.eventbrite.com.au/api/v3/destination/search/?page_size=25&include_adult_events=false&online_events_only=false&bbox=${(parseFloat(lat)-0.3).toFixed(3)},${(parseFloat(lng)-0.3).toFixed(3)},${(parseFloat(lat)+0.3).toFixed(3)},${(parseFloat(lng)+0.3).toFixed(3)}&date_range.start=${startDate}T00%3A00%3A00&date_range.end=${endDate}T23%3A59%3A59&include_sponsored=false&dedup=true&expand=image,venue,ticket_availability,primary_organizer&page=1&start_date.keyword=this_week`;
-      const r = await fetchSafe(ebUrl, {
-        headers: {
-          ...HEADERS_BROWSER,
-          'Accept': 'application/json, text/plain, */*',
-          'Referer': 'https://www.eventbrite.com.au/',
-          'Origin': 'https://www.eventbrite.com.au',
-          'X-Requested-With': 'XMLHttpRequest',
-        }
-      }, 12000);
-      if(!r?.ok) { console.log('EB API status:', r?.status); }
-      else {
-        const data = await r.json();
-        for(const e of (data?.events?.results||[]).slice(0,20)) {
-          if(!e.name) continue;
-          const dt = (e.start_date||'') + (e.start_time ? 'T'+e.start_time : '');
-          const ta = e.ticket_availability;
-          results.push({
-            id:'eb_'+e.id, name:e.name,
-            date:e.start_date, time:e.start_time?.slice(0,5),
-            location:[e.primary_venue?.name, e.primary_venue?.address?.localized_area_display].filter(Boolean).join(', '),
-            suburb:e.primary_venue?.address?.city||e.primary_venue?.address?.localized_area_display,
-            category:guessCategory(e.name+' '+(e.tags||[]).map(t=>t.display_name).join(' ')),
-            url:e.url, image:e.image?.url,
-            description:e.summary||'',
-            priceRange:ta?.is_free?'Free':(ta?.minimum_ticket_price?'$'+parseFloat(ta.minimum_ticket_price.major_value).toFixed(0)+(ta.maximum_ticket_price?'–$'+parseFloat(ta.maximum_ticket_price.major_value).toFixed(0):''):null),
-            source:'Eventbrite'
-          });
-        }
-        console.log('EB API:', results.filter(r=>r.source==='Eventbrite').length);
-      }
+  await Promise.allSettled([fetchGoogle(), fetchRA(), fetchMeetup(), fetchEventbrite(), fetchHumanitix()]);
 
-      // Also try HTML scrape as fallback
-      if(results.filter(r=>r.source==='Eventbrite').length === 0) {
-        const htmlUrl = `https://www.eventbrite.com.au/d/australia--${city}/free--events/?start_date=${startDate}&end_date=${endDate}`;
-        const hr = await fetchSafe(htmlUrl, {headers:HEADERS_BROWSER}, 14000);
-        if(hr?.ok) {
-          const html = await hr.text();
-          for(const m of html.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/gi)) {
-            try {
-              const raw=JSON.parse(m[1]);
-              const items=Array.isArray(raw)?raw:(raw['@graph']||[raw]);
-              for(const item of items) {
-                if(item['@type']!=='Event'||!item.name) continue;
-                const dt=item.startDate||'';
-                results.push({
-                  id:'eb2_'+Buffer.from(item.name).toString('base64').slice(0,12),
-                  name:item.name, date:dt.slice(0,10), time:dt.length>10?dt.slice(11,16):null,
-                  location:[item.location?.name,item.location?.address?.addressLocality].filter(Boolean).join(', '),
-                  suburb:item.location?.address?.addressLocality,
-                  category:guessCategory(item.name), url:item.url,
-                  image:Array.isArray(item.image)?item.image[0]:item.image,
-                  description:(item.description||'').replace(/<[^>]*>/g,'').slice(0,300),
-                  priceRange:item.offers?.price!=null?(parseFloat(item.offers.price)===0?'Free':'$'+parseFloat(item.offers.price).toFixed(0)):null,
-                  source:'Eventbrite'
-                });
-              }
-            } catch(_){}
-          }
-          console.log('EB HTML:', results.filter(r=>r.source==='Eventbrite').length);
-        }
-      }
-    } catch(e) { console.log('Eventbrite:', e.message); }
-  };
-
-  await Promise.allSettled([fetchGoogle(), fetchRA(), fetchMeetup(), fetchHumanitix(), fetchEventbrite()]);
-
-  console.log(`Raw results: RA=${results.filter(r=>r.source==='Resident Advisor').length} Meetup=${results.filter(r=>r.source==='Meetup').length} HX=${results.filter(r=>r.source==='Humanitix').length} EB=${results.filter(r=>r.source==='Eventbrite').length} G=${results.filter(r=>r.source==='Google Events').length}`);
+  console.log(`Raw: RA=${results.filter(r=>r.source==='Resident Advisor').length} MU=${results.filter(r=>r.source==='Meetup').length} HX=${results.filter(r=>r.source==='Humanitix').length} EB=${results.filter(r=>r.source==='Eventbrite').length} G=${results.filter(r=>r.source==='Google Events').length}`);
 
   // Filter to correct city
   const expectedCity = deriveEBCity(location, lat, lng);
   const cityKeywords = {
     sydney:      /sydney|nsw|barangaroo|pyrmont|newtown|bondi|manly|parramatta|surry.hills|darlinghurst|paddington|glebe|balmain|redfern|waterloo|chippendale|haymarket|ultimo|mosman|chatswood|2\d{3}/i,
     melbourne:   /melbourne|vic|fitzroy|collingwood|richmond|brunswick|st.kilda|southbank|prahran|windsor|hawthorn|footscray|3\d{3}/i,
-    brisbane:    /brisbane|qld|fortitude.valley|south.bank|west.end|new.farm|teneriffe|4\d{3}/i,
+    brisbane:    /brisbane|qld|fortitude.valley|south.bank|west.end|new.farm|4\d{3}/i,
     perth:       /perth|wa|fremantle|subiaco|northbridge|6\d{3}/i,
     adelaide:    /adelaide|sa|glenelg|5\d{3}/i,
     'gold-coast':/gold.coast|surfers.paradise|broadbeach|burleigh/i,
@@ -539,7 +671,6 @@ app.get('/api/explore-events', async (req, res) => {
     if(seen.has(key)) return false; seen.add(key); return true;
   });
   unique.sort((a,b)=>(a.date||'').localeCompare(b.date||'')||(a.time||'').localeCompare(b.time||''));
-
   console.log(`Returning ${unique.length} events near ${location}`);
   res.json({ events: unique, sources: [...new Set(unique.map(e=>e.source))] });
 });
