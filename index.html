@@ -3985,40 +3985,58 @@ function getExploreTimeRange() {
 }
 
 async function fetchExploreEvents() {
-  const results = document.getElementById('explore-results');
-  if(results) results.innerHTML = '<div style="text-align:center;padding:30px;color:var(--ink-muted);"><div style="font-size:1.5rem;margin-bottom:8px;">🔍</div><div style="font-size:0.9rem;">Searching Resident Advisor, Meetup, Eventbrite & more...</div></div>';
+  const resultsEl = document.getElementById('explore-results');
+  if(resultsEl) resultsEl.innerHTML = '<div style="text-align:center;padding:30px;color:var(--ink-muted);"><div style="font-size:1.5rem;margin-bottom:8px;">🔍</div><div style="font-size:0.9rem;">Finding events near you...</div></div>';
 
   const { startISO, endISO, start } = getExploreTimeRange();
   let events = [];
   let sources = [];
 
   if(exploreLocation) {
-    try {
-      const params = new URLSearchParams({
-        lat: exploreLocation.lat, lng: exploreLocation.lng,
-        label: exploreLocation.label || '',
-        start: startISO.slice(0,10), end: endISO.slice(0,10), when: exploreWhen
-      });
-      const data = await apiFetch('/api/explore-events?' + params.toString());
-      if(data?.events?.length > 0) {
-        events = data.events;
-        sources = data.sources || [];
-      }
-    } catch(e) { console.log('Explore error:', e); }
+    // Check localStorage cache first — keyed by city+when+date
+    const today = new Date().toISOString().slice(0,10);
+    const cacheKey = 'explore_cache_' + (exploreLocation.label||'').replace(/\s/g,'').slice(0,12).toLowerCase() + '_' + exploreWhen + '_' + today;
+    const cached = DB.get(cacheKey);
+    if(cached && cached.events?.length > 0) {
+      console.log('Client cache hit:', cacheKey, cached.events.length, 'events');
+      events = cached.events;
+      sources = cached.sources || [];
+    } else {
+      try {
+        const params = new URLSearchParams({
+          lat: exploreLocation.lat, lng: exploreLocation.lng,
+          label: exploreLocation.label || '',
+          start: startISO.slice(0,10), end: endISO.slice(0,10), when: exploreWhen
+        });
+        const data = await apiFetch('/api/explore-events?' + params.toString());
+        if(data?.events?.length > 0) {
+          events = data.events;
+          sources = data.sources || [];
+          // Cache in localStorage for today
+          DB.set(cacheKey, { events, sources, fetchedAt: Date.now() });
+          // Clean up old explore caches (keep only last 5)
+          try {
+            const allKeys = Object.keys(localStorage).filter(k => k.startsWith('bloom_explore_cache_'));
+            if(allKeys.length > 5) {
+              allKeys.sort().slice(0, allKeys.length - 5).forEach(k => localStorage.removeItem(k));
+            }
+          } catch(_) {}
+        }
+      } catch(e) { console.log('Explore error:', e); }
+    }
   }
 
-  // Show source badges if we got real results
-  const resultsEl = document.getElementById('explore-results');
+  // Show source badges if real results
   if(events.length > 0 && sources.length > 0 && resultsEl) {
     const srcBadges = sources.map(s => `<span style="background:#f0f8f0;color:var(--moss);font-size:0.7rem;padding:2px 8px;border-radius:10px;font-weight:500;">${s}</span>`).join(' ');
     resultsEl.innerHTML = `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;align-items:center;"><span style="font-size:0.75rem;color:var(--ink-muted);">Live from:</span>${srcBadges}</div>`;
   }
 
-  // Fallback if nothing returned
+  // Fallback to curated suggestions
   if(events.length === 0) {
     const baseDate = new Date(start + 'T00:00:00');
     events = generateCuratedEvents(exploreLocation?.label || 'your area', baseDate);
-    if(resultsEl) resultsEl.innerHTML = '<div style="font-size:0.8rem;color:var(--ink-muted);margin-bottom:12px;padding:10px 12px;background:var(--cream-dark);border-radius:8px;line-height:1.5;">💡 Showing suggested events. To see real local events, add a <strong>SERPAPI_KEY</strong> to your Render environment variables — free at <a href="https://serpapi.com" target="_blank" style="color:var(--moss);">serpapi.com</a> (100 searches/month).</div>';
+    if(resultsEl) resultsEl.innerHTML = '<div style="font-size:0.8rem;color:var(--ink-muted);margin-bottom:12px;padding:10px 12px;background:var(--cream-dark);border-radius:8px;line-height:1.5;">💡 Showing suggested events. Add a <strong>SERPAPI_KEY</strong> to Render for real local events — free at <a href="https://serpapi.com" target="_blank" style="color:var(--moss);">serpapi.com</a></div>';
   }
 
   exploreCache = events;
