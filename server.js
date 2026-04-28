@@ -295,31 +295,35 @@ app.get('/api/explore-events', async (req, res) => {
     catch(_) { return null; }
   };
 
-  // ── 1. SerpAPI Google Events — best for community/free events ──
-  // Indexes Facebook Events, council sites, Eventbrite free, local blogs
+  const HEADERS_BROWSER = {
+    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+    'Accept-Language': 'en-AU,en;q=0.9',
+    'Accept-Encoding': 'gzip, deflate, br',
+    'Cache-Control': 'no-cache',
+  };
+
+  // ── 1. SerpAPI Google Events (optional, best source) ──────────
   const fetchGoogle = async () => {
     if(!SERPAPI_KEY) return;
     try {
       const whenParam = when==='weekend' ? 'this_weekend' : when==='week' ? 'next_week' : 'next_month';
       const queries = [
-        `free events ${location} this weekend`,
-        `markets ${location}`,
-        `community events ${location}`,
-        `things to do ${location}`,
-        `local events ${location}`,
+        `free events ${location}`, `markets ${location}`,
+        `community events ${location}`, `things to do ${location}`,
       ];
       const seen = new Set();
       for(const q of queries) {
-        const url = `https://serpapi.com/search.json?engine=google_events&q=${encodeURIComponent(q)}&location=${encodeURIComponent(location + ', Australia')}&hl=en&gl=au&htichips=date:${whenParam}&api_key=${SERPAPI_KEY}`;
+        const url = `https://serpapi.com/search.json?engine=google_events&q=${encodeURIComponent(q)}&location=${encodeURIComponent(location+', Australia')}&hl=en&gl=au&htichips=date:${whenParam}&api_key=${SERPAPI_KEY}`;
         const r = await fetchSafe(url, {}, 8000);
         if(!r?.ok) continue;
         const data = await r.json();
-        for(const e of (data.events_results || []).slice(0, 10)) {
+        for(const e of (data.events_results||[]).slice(0,10)) {
           if(!e.title) continue;
           const key = e.title.toLowerCase().slice(0,30);
           if(seen.has(key)) continue; seen.add(key);
           results.push({
-            id: 'serp_'+Buffer.from(e.title+(e.date?.start_date||'')).toString('base64').slice(0,14),
+            id: 'g_'+Buffer.from(e.title+(e.date?.start_date||'')).toString('base64').slice(0,14),
             name: e.title,
             date: parseGoogleDate(e.date?.start_date, e.date?.when),
             time: parseGoogleTime(e.date?.when),
@@ -329,191 +333,185 @@ app.get('/api/explore-events', async (req, res) => {
             url: e.link || e.ticket_info?.[0]?.link,
             image: e.thumbnail,
             description: e.description || '',
-            priceRange: e.ticket_info?.[0]?.price || 'Free',
+            priceRange: e.ticket_info?.[0]?.price || null,
             source: 'Google Events'
           });
         }
       }
-      console.log('Google:', results.filter(r=>r.source==='Google Events').length, 'events');
-    } catch(e) { console.log('SerpAPI error:', e.message); }
+      console.log('Google:', results.filter(r=>r.source==='Google Events').length);
+    } catch(e) { console.log('SerpAPI:', e.message); }
   };
 
-  // ── 2. Resident Advisor — music/club/electronic ────────────────
+  // ── 2. Resident Advisor (no key, GraphQL) ─────────────────────
   const fetchRA = async () => {
     try {
       const citySlug = deriveRACity(location, lat, lng);
-      const query = JSON.stringify({
-        query: `query EventListings($filters:FilterInputDtoInput,$pageSize:Int){
-          eventListings(filters:$filters,pageSize:$pageSize,page:1,sort:{startTime:ASCENDING}){
-            data{event{id title date startTime images{filename}venue{name area{name}}
-              pick{blurb}artists{name}cost contentUrl}}}}`,
-        variables: {
-          filters: { areas:{slug:citySlug}, listingDate:{gte:startDate,lte:endDate} },
-          pageSize: 15
-        }
-      });
       const r = await fetchSafe('https://ra.co/graphql', {
         method:'POST',
-        headers:{'Content-Type':'application/json','Accept':'application/json',
-          'User-Agent':'Mozilla/5.0','Referer':'https://ra.co','Origin':'https://ra.co'},
-        body: query
+        headers:{'Content-Type':'application/json','Accept':'application/json','User-Agent':'Mozilla/5.0','Referer':'https://ra.co','Origin':'https://ra.co'},
+        body: JSON.stringify({
+          query:`query{eventListings(filters:{areas:{slug:"${citySlug}"},listingDate:{gte:"${startDate}",lte:"${endDate}"}},pageSize:15,page:1,sort:{startTime:ASCENDING}){data{event{id title date startTime images{filename}venue{name area{name}}pick{blurb}artists{name}cost contentUrl}}}}`,
+          variables:{}
+        })
       });
       if(!r?.ok) return;
       const data = await r.json();
-      for(const item of (data?.data?.eventListings?.data || [])) {
-        const e = item.event; if(!e?.title) continue;
-        const dt = e.startTime || e.date || '';
-        const artists = (e.artists||[]).map(a=>a.name).filter(Boolean);
+      for(const item of (data?.data?.eventListings?.data||[])) {
+        const e=item.event; if(!e?.title) continue;
+        const dt=e.startTime||e.date||'';
         results.push({
-          id: 'ra_'+e.id, name: e.title,
-          date: dt.slice(0,10), time: dt.length>10 ? dt.slice(11,16) : null,
-          location: [e.venue?.name, e.venue?.area?.name].filter(Boolean).join(', '),
-          suburb: e.venue?.area?.name || location, category: 'music',
-          url: e.contentUrl ? 'https://ra.co'+e.contentUrl : 'https://ra.co/events',
-          image: e.images?.[0]?.filename ? 'https://ra.co'+e.images[0].filename : null,
-          description: [e.pick?.blurb, artists.length ? 'Artists: '+artists.join(', ') : null].filter(Boolean).join('\n\n'),
-          priceRange: e.cost || null, source: 'Resident Advisor'
+          id:'ra_'+e.id, name:e.title,
+          date:dt.slice(0,10), time:dt.length>10?dt.slice(11,16):null,
+          location:[e.venue?.name,e.venue?.area?.name].filter(Boolean).join(', '),
+          suburb:e.venue?.area?.name||location, category:'music',
+          url:e.contentUrl?'https://ra.co'+e.contentUrl:'https://ra.co/events',
+          image:e.images?.[0]?.filename?'https://ra.co'+e.images[0].filename:null,
+          description:[e.pick?.blurb,(e.artists||[]).map(a=>a.name).filter(Boolean).join(', ')].filter(Boolean).join('\nArtists: '),
+          priceRange:e.cost||null, source:'Resident Advisor'
         });
       }
-      console.log('RA:', results.filter(r=>r.source==='Resident Advisor').length, 'events');
-    } catch(e) { console.log('RA error:', e.message); }
+      console.log('RA:', results.filter(r=>r.source==='Resident Advisor').length);
+    } catch(e) { console.log('RA:', e.message); }
   };
 
-  // ── 3. Meetup — community groups, social events ────────────────
+  // ── 3. Meetup GraphQL (no key needed for public events) ───────
   const fetchMeetup = async () => {
     try {
-      const body = JSON.stringify({
-        operationName: 'recommendedEventsWithSeries',
-        variables: {
-          first: 20, lat: parseFloat(lat), lon: parseFloat(lng),
-          radius: 30, startDateRange: startDate+'T00:00:00',
-          endDateRange: endDate+'T23:59:59', eventType: 'PHYSICAL'
-        },
-        query: `query recommendedEventsWithSeries($lat:Float!,$lon:Float!,$radius:Int,$first:Int,$startDateRange:ZonedDateTime,$endDateRange:ZonedDateTime,$eventType:EventType){
-          result:recommendedEvents(filter:{lat:$lat,lon:$lon,radius:$radius,startDateRange:$startDateRange,endDateRange:$endDateRange,eventType:$eventType},first:$first){
-            edges{node{id title dateTime description{html}
-              venue{name city} eventUrl isFree
-              images{baseUrl} group{name} topics{name}
-            }}
-          }
-        }`
-      });
       const r = await fetchSafe('https://www.meetup.com/gql', {
         method:'POST',
         headers:{'Content-Type':'application/json','Accept':'application/json','User-Agent':'Mozilla/5.0'},
-        body
+        body: JSON.stringify({
+          operationName:'recommendedEventsWithSeries',
+          variables:{first:20,lat:parseFloat(lat),lon:parseFloat(lng),radius:30,startDateRange:startDate+'T00:00:00',endDateRange:endDate+'T23:59:59',eventType:'PHYSICAL'},
+          query:`query recommendedEventsWithSeries($lat:Float!,$lon:Float!,$radius:Int,$first:Int,$startDateRange:ZonedDateTime,$endDateRange:ZonedDateTime,$eventType:EventType){result:recommendedEvents(filter:{lat:$lat,lon:$lon,radius:$radius,startDateRange:$startDateRange,endDateRange:$endDateRange,eventType:$eventType},first:$first){edges{node{id title dateTime description{html}venue{name city}eventUrl isFree images{baseUrl}group{name}topics{name}}}}}`
+        })
       }, 8000);
       if(!r?.ok) return;
       const data = await r.json();
-      for(const edge of (data?.data?.result?.edges || [])) {
-        const e = edge.node; if(!e?.title) continue;
-        const dt = e.dateTime || '';
+      for(const edge of (data?.data?.result?.edges||[])) {
+        const e=edge.node; if(!e?.title) continue;
+        const dt=e.dateTime||'';
         results.push({
-          id: 'mu_'+e.id, name: e.title,
-          date: dt.slice(0,10), time: dt.slice(11,16)||null,
-          location: [e.venue?.name, e.venue?.city].filter(Boolean).join(', '),
-          suburb: e.venue?.city || location,
-          category: guessCategory((e.topics||[]).map(t=>t.name).join(' ')+' '+e.title),
-          url: e.eventUrl, image: e.images?.[0]?.baseUrl,
-          description: [
-            (e.description?.html||'').replace(/<[^>]*>/g,'').slice(0,300),
-            e.group?.name ? `Organised by: ${e.group.name}` : null
-          ].filter(Boolean).join('\n\n'),
-          priceRange: e.isFree ? 'Free' : null,
-          source: 'Meetup'
+          id:'mu_'+e.id, name:e.title,
+          date:dt.slice(0,10), time:dt.slice(11,16)||null,
+          location:[e.venue?.name,e.venue?.city].filter(Boolean).join(', '),
+          suburb:e.venue?.city||location,
+          category:guessCategory((e.topics||[]).map(t=>t.name).join(' ')+' '+e.title),
+          url:e.eventUrl, image:e.images?.[0]?.baseUrl,
+          description:[(e.description?.html||'').replace(/<[^>]*>/g,'').slice(0,300),e.group?.name?'Organised by: '+e.group.name:null].filter(Boolean).join('\n'),
+          priceRange:e.isFree?'Free':null, source:'Meetup'
         });
       }
-      console.log('Meetup:', results.filter(r=>r.source==='Meetup').length, 'events');
-    } catch(e) { console.log('Meetup error:', e.message); }
+      console.log('Meetup:', results.filter(r=>r.source==='Meetup').length);
+    } catch(e) { console.log('Meetup:', e.message); }
   };
 
-  // ── 4. Eventbrite free/community events ───────────────────────
+  // ── 4. Humanitix public search (Australian platform) ──────────
+  const fetchHumanitix = async () => {
+    try {
+      const url = `https://events.humanitix.com/api/v1/events/search?lat=${lat}&lng=${lng}&radius=30&startDate=${startDate}T00:00:00&endDate=${endDate}T23:59:59&limit=15&status=published`;
+      const r = await fetchSafe(url, {headers:{'Accept':'application/json','User-Agent':'Mozilla/5.0'}}, 8000);
+      if(!r?.ok) return;
+      const data = await r.json();
+      for(const e of (data.events||[]).slice(0,15)) {
+        if(!e.name) continue;
+        results.push({
+          id:'hx_'+e._id, name:e.name,
+          date:e.startDate?.slice(0,10), time:e.startDate?.slice(11,16),
+          location:[e.location?.name,e.location?.suburb,e.location?.state].filter(Boolean).join(', '),
+          suburb:e.location?.suburb,
+          category:guessCategory((e.tags||[]).join(' ')+' '+e.name),
+          url:'https://events.humanitix.com/'+e.slug, image:e.coverImage?.url,
+          description:(e.description||'').replace(/<[^>]*>/g,'').slice(0,400),
+          priceRange:e.isFree?'Free':(e.minPrice?'$'+e.minPrice+(e.maxPrice&&e.maxPrice!==e.minPrice?'–$'+e.maxPrice:''):null),
+          source:'Humanitix'
+        });
+      }
+      console.log('Humanitix:', results.filter(r=>r.source==='Humanitix').length);
+    } catch(e) { console.log('Humanitix:', e.message); }
+  };
+
+  // ── 5. Eventbrite via search API (no key for public events) ───
   const fetchEventbrite = async () => {
     try {
       const city = deriveEBCity(location, lat, lng);
-      // Target free and community categories specifically
-      const pages = [
-        `https://www.eventbrite.com.au/d/australia--${city}/free--events/?start_date=${startDate}&end_date=${endDate}`,
-        `https://www.eventbrite.com.au/d/australia--${city}/community--events/?start_date=${startDate}&end_date=${endDate}`,
-        `https://www.eventbrite.com.au/d/australia--${city}/food-and-drink--events/?start_date=${startDate}&end_date=${endDate}`,
-        `https://www.eventbrite.com.au/d/australia--${city}/arts--events/?start_date=${startDate}&end_date=${endDate}`,
-      ];
-      for(const url of pages) {
-        const r = await fetchSafe(url, { headers: {
-          'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
-          'Accept': 'text/html', 'Accept-Language': 'en-AU,en;q=0.9'
-        }}, 14000);
-        if(!r?.ok) continue;
-        const html = await r.text();
-        // Extract JSON-LD structured data
-        for(const m of html.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/gi)) {
-          try {
-            const raw = JSON.parse(m[1]);
-            const items = Array.isArray(raw) ? raw : (raw['@graph'] || [raw]);
-            for(const item of items) {
-              if(item['@type'] !== 'Event' || !item.name) continue;
-              const dt = item.startDate || '';
-              const price = parseFloat(item.offers?.price);
-              results.push({
-                id: 'eb_'+Buffer.from(item.name+(item.startDate||'')).toString('base64').slice(0,14),
-                name: item.name, date: dt.slice(0,10),
-                time: dt.length>10 ? dt.slice(11,16) : null,
-                location: [item.location?.name, item.location?.address?.streetAddress, item.location?.address?.addressLocality].filter(Boolean).join(', '),
-                suburb: item.location?.address?.addressLocality,
-                category: guessCategory(item.name+' '+(item.description||'')),
-                url: item.url,
-                image: Array.isArray(item.image) ? item.image[0] : item.image,
-                description: (item.description||'').replace(/<[^>]*>/g,'').slice(0,400),
-                priceRange: isNaN(price) ? null : (price === 0 ? 'Free' : '$'+price.toFixed(0)),
-                source: 'Eventbrite'
-              });
-            }
-          } catch(_) {}
+      // Use Eventbrite's internal search endpoint that works without auth
+      const ebUrl = `https://www.eventbrite.com.au/api/v3/destination/search/?page_size=25&include_adult_events=false&online_events_only=false&bbox=${(parseFloat(lat)-0.3).toFixed(3)},${(parseFloat(lng)-0.3).toFixed(3)},${(parseFloat(lat)+0.3).toFixed(3)},${(parseFloat(lng)+0.3).toFixed(3)}&date_range.start=${startDate}T00%3A00%3A00&date_range.end=${endDate}T23%3A59%3A59&include_sponsored=false&dedup=true&expand=image,venue,ticket_availability,primary_organizer&page=1&start_date.keyword=this_week`;
+      const r = await fetchSafe(ebUrl, {
+        headers: {
+          ...HEADERS_BROWSER,
+          'Accept': 'application/json, text/plain, */*',
+          'Referer': 'https://www.eventbrite.com.au/',
+          'Origin': 'https://www.eventbrite.com.au',
+          'X-Requested-With': 'XMLHttpRequest',
+        }
+      }, 12000);
+      if(!r?.ok) { console.log('EB API status:', r?.status); }
+      else {
+        const data = await r.json();
+        for(const e of (data?.events?.results||[]).slice(0,20)) {
+          if(!e.name) continue;
+          const dt = (e.start_date||'') + (e.start_time ? 'T'+e.start_time : '');
+          const ta = e.ticket_availability;
+          results.push({
+            id:'eb_'+e.id, name:e.name,
+            date:e.start_date, time:e.start_time?.slice(0,5),
+            location:[e.primary_venue?.name, e.primary_venue?.address?.localized_area_display].filter(Boolean).join(', '),
+            suburb:e.primary_venue?.address?.city||e.primary_venue?.address?.localized_area_display,
+            category:guessCategory(e.name+' '+(e.tags||[]).map(t=>t.display_name).join(' ')),
+            url:e.url, image:e.image?.url,
+            description:e.summary||'',
+            priceRange:ta?.is_free?'Free':(ta?.minimum_ticket_price?'$'+parseFloat(ta.minimum_ticket_price.major_value).toFixed(0)+(ta.maximum_ticket_price?'–$'+parseFloat(ta.maximum_ticket_price.major_value).toFixed(0):''):null),
+            source:'Eventbrite'
+          });
+        }
+        console.log('EB API:', results.filter(r=>r.source==='Eventbrite').length);
+      }
+
+      // Also try HTML scrape as fallback
+      if(results.filter(r=>r.source==='Eventbrite').length === 0) {
+        const htmlUrl = `https://www.eventbrite.com.au/d/australia--${city}/free--events/?start_date=${startDate}&end_date=${endDate}`;
+        const hr = await fetchSafe(htmlUrl, {headers:HEADERS_BROWSER}, 14000);
+        if(hr?.ok) {
+          const html = await hr.text();
+          for(const m of html.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/gi)) {
+            try {
+              const raw=JSON.parse(m[1]);
+              const items=Array.isArray(raw)?raw:(raw['@graph']||[raw]);
+              for(const item of items) {
+                if(item['@type']!=='Event'||!item.name) continue;
+                const dt=item.startDate||'';
+                results.push({
+                  id:'eb2_'+Buffer.from(item.name).toString('base64').slice(0,12),
+                  name:item.name, date:dt.slice(0,10), time:dt.length>10?dt.slice(11,16):null,
+                  location:[item.location?.name,item.location?.address?.addressLocality].filter(Boolean).join(', '),
+                  suburb:item.location?.address?.addressLocality,
+                  category:guessCategory(item.name), url:item.url,
+                  image:Array.isArray(item.image)?item.image[0]:item.image,
+                  description:(item.description||'').replace(/<[^>]*>/g,'').slice(0,300),
+                  priceRange:item.offers?.price!=null?(parseFloat(item.offers.price)===0?'Free':'$'+parseFloat(item.offers.price).toFixed(0)):null,
+                  source:'Eventbrite'
+                });
+              }
+            } catch(_){}
+          }
+          console.log('EB HTML:', results.filter(r=>r.source==='Eventbrite').length);
         }
       }
-      console.log('Eventbrite:', results.filter(r=>r.source==='Eventbrite').length, 'events');
-    } catch(e) { console.log('Eventbrite error:', e.message); }
+    } catch(e) { console.log('Eventbrite:', e.message); }
   };
 
-  // ── 5. Humanitix — Australian community/charity events ─────────
-  const fetchHumanitix = async () => {
-    try {
-      const startISO = startDate + 'T00:00:00';
-      const endISO   = endDate   + 'T23:59:59';
-      const url = `https://events.humanitix.com/api/v1/events/search?lat=${lat}&lng=${lng}&radius=30&startDate=${startISO}&endDate=${endISO}&limit=15&status=published`;
-      const r = await fetchSafe(url, {
-        headers: { 'Accept': 'application/json', 'User-Agent': 'Mozilla/5.0' }
-      }, 8000);
-      if(!r?.ok) return;
-      const data = await r.json();
-      for(const e of (data.events || []).slice(0,15)) {
-        if(!e.name) continue;
-        results.push({
-          id: 'hx_'+e._id, name: e.name,
-          date: e.startDate?.slice(0,10), time: e.startDate?.slice(11,16),
-          location: [e.location?.name, e.location?.suburb, e.location?.state].filter(Boolean).join(', '),
-          suburb: e.location?.suburb,
-          category: guessCategory((e.tags||[]).join(' ')+' '+e.name),
-          url: 'https://events.humanitix.com/'+e.slug,
-          image: e.coverImage?.url,
-          description: (e.description||'').replace(/<[^>]*>/g,'').slice(0,400),
-          priceRange: e.isFree ? 'Free' : (e.minPrice ? '$'+e.minPrice+(e.maxPrice&&e.maxPrice!==e.minPrice?'–$'+e.maxPrice:'') : null),
-          source: 'Humanitix'
-        });
-      }
-      console.log('Humanitix:', results.filter(r=>r.source==='Humanitix').length, 'events');
-    } catch(e) { console.log('Humanitix error:', e.message); }
-  };
+  await Promise.allSettled([fetchGoogle(), fetchRA(), fetchMeetup(), fetchHumanitix(), fetchEventbrite()]);
 
-  await Promise.allSettled([fetchGoogle(), fetchRA(), fetchMeetup(), fetchEventbrite(), fetchHumanitix()]);
+  console.log(`Raw results: RA=${results.filter(r=>r.source==='Resident Advisor').length} Meetup=${results.filter(r=>r.source==='Meetup').length} HX=${results.filter(r=>r.source==='Humanitix').length} EB=${results.filter(r=>r.source==='Eventbrite').length} G=${results.filter(r=>r.source==='Google Events').length}`);
 
-  // Filter to correct city using coordinates
+  // Filter to correct city
   const expectedCity = deriveEBCity(location, lat, lng);
   const cityKeywords = {
     sydney:      /sydney|nsw|barangaroo|pyrmont|newtown|bondi|manly|parramatta|surry.hills|darlinghurst|paddington|glebe|balmain|redfern|waterloo|chippendale|haymarket|ultimo|mosman|chatswood|2\d{3}/i,
-    melbourne:   /melbourne|vic|fitzroy|collingwood|richmond|brunswick|st.kilda|southbank|docklands|prahran|windsor|hawthorn|footscray|3\d{3}/i,
-    brisbane:    /brisbane|qld|fortitude.valley|south.bank|west.end|new.farm|teneriffe|woolloongabba|4\d{3}/i,
-    perth:       /perth|wa|fremantle|subiaco|northbridge|leederville|6\d{3}/i,
+    melbourne:   /melbourne|vic|fitzroy|collingwood|richmond|brunswick|st.kilda|southbank|prahran|windsor|hawthorn|footscray|3\d{3}/i,
+    brisbane:    /brisbane|qld|fortitude.valley|south.bank|west.end|new.farm|teneriffe|4\d{3}/i,
+    perth:       /perth|wa|fremantle|subiaco|northbridge|6\d{3}/i,
     adelaide:    /adelaide|sa|glenelg|5\d{3}/i,
     'gold-coast':/gold.coast|surfers.paradise|broadbeach|burleigh/i,
     australia:   /.*/
@@ -542,7 +540,7 @@ app.get('/api/explore-events', async (req, res) => {
   });
   unique.sort((a,b)=>(a.date||'').localeCompare(b.date||'')||(a.time||'').localeCompare(b.time||''));
 
-  console.log(`Total: ${unique.length} events near ${location} [${[...new Set(unique.map(e=>e.source))].join(', ')}]`);
+  console.log(`Returning ${unique.length} events near ${location}`);
   res.json({ events: unique, sources: [...new Set(unique.map(e=>e.source))] });
 });
 
