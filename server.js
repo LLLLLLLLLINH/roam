@@ -198,4 +198,74 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-app.listen(PORT, () => console.log('Roam. server on port', PORT));
+// ── WebSocket real-time sync ───────────────────────────────────
+const http = require('http');
+const { WebSocketServer } = require('ws');
+
+const server = http.createServer(app);
+const wss = new WebSocketServer({ server, path: '/ws' });
+
+// Track connections by gardenId
+const gardenSockets = new Map(); // gardenId -> Set<ws>
+
+wss.on('connection', (ws, req) => {
+  const params = new URL(req.url, 'http://localhost').searchParams;
+  const gardenId = params.get('garden');
+  const username = params.get('user');
+  if(!gardenId) { ws.close(); return; }
+
+  if(!gardenSockets.has(gardenId)) gardenSockets.set(gardenId, new Set());
+  gardenSockets.get(gardenId).add(ws);
+  console.log(`WS connected: ${username} in garden ${gardenId}`);
+
+  ws.on('message', (data) => {
+    try {
+      const msg = JSON.parse(data);
+      // Broadcast to all OTHER connections in same garden
+      const sockets = gardenSockets.get(msg.gardenId || gardenId);
+      if(sockets) {
+        sockets.forEach(client => {
+          if(client !== ws && client.readyState === 1) {
+            client.send(JSON.stringify(msg));
+          }
+        });
+      }
+    } catch(_) {}
+  });
+
+  ws.on('close', () => {
+    const sockets = gardenSockets.get(gardenId);
+    if(sockets) { sockets.delete(ws); if(sockets.size === 0) gardenSockets.delete(gardenId); }
+  });
+
+  ws.on('error', () => ws.close());
+});
+
+// ── Server-side URL fetch (bypasses CORS for Eventbrite etc) ──
+app.get('/api/fetch-event-url', async (req, res) => {
+  const url = req.query.url;
+  if(!url) return res.status(400).json({ error: 'No URL' });
+  try {
+    const r = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (compatible; Googlebot/2.1)',
+        'Accept': 'text/html,application/xhtml+xml',
+        'Accept-Language': 'en-AU,en;q=0.9',
+      },
+      redirect: 'follow',
+      signal: AbortSignal.timeout(8000),
+    });
+    if(!r.ok) return res.status(r.status).json({ error: 'Fetch failed' });
+    const html = await r.text();
+    // Only return meta/script tags to keep response small
+    const meta = (html.match(/<meta[^>]+>/gi)||[]).join('\n');
+    const scripts = (html.match(/<script[^>]*>[\s\S]{10,5000}?<\/script>/gi)||[]).slice(0,8).join('\n');
+    const title = (html.match(/<title[^>]*>([^<]+)<\/title>/i)||[])[1]||'';
+    res.json({ meta, scripts, title, ok: true });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Start with WebSocket support
+server.listen(PORT, () => console.log('Roam. server (WS enabled) on port', PORT));
