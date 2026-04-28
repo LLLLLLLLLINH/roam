@@ -347,10 +347,33 @@ app.get('/api/fetch-event-url', async (req, res) => {
   }
 });
 
+// ── In-memory explore cache (city+when → results, expires daily) ─
+const exploreCache = new Map(); // key → { events, sources, fetchedAt }
+
+function getExploreCacheKey(lat, lng, when) {
+  const city = deriveEBCity('', lat, lng);
+  const today = new Date().toISOString().slice(0,10);
+  return `${city}_${when}_${today}`;
+}
+
+function isCacheValid(entry) {
+  if(!entry) return false;
+  // Cache valid for 6 hours — fresh enough for daily use, saves API calls
+  return (Date.now() - entry.fetchedAt) < 6 * 60 * 60 * 1000;
+}
+
 // ── Real event search — RA + Google + Eventbrite + Meetup ─────
 app.get('/api/explore-events', async (req, res) => {
   const { lat, lng, label, start, end, when } = req.query;
   if(!lat || !lng) return res.status(400).json({ error: 'lat/lng required' });
+
+  // ── Check cache first ────────────────────────────────────────
+  const cacheKey = getExploreCacheKey(lat, lng, when || 'weekend');
+  const cached = exploreCache.get(cacheKey);
+  if(isCacheValid(cached)) {
+    console.log(`Cache hit: ${cacheKey} (${cached.events.length} events, ${Math.round((Date.now()-cached.fetchedAt)/60000)}m old)`);
+    return res.json({ events: cached.events, sources: cached.sources, cached: true });
+  }
 
   const SERPAPI_KEY = process.env.SERPAPI_KEY || '';
   const startDate = start || new Date().toISOString().slice(0,10);
@@ -675,7 +698,17 @@ app.get('/api/explore-events', async (req, res) => {
   });
   unique.sort((a,b)=>(a.date||'').localeCompare(b.date||'')||(a.time||'').localeCompare(b.time||''));
   console.log(`Returning ${unique.length} events near ${location}`);
-  res.json({ events: unique, sources: [...new Set(unique.map(e=>e.source))] });
+
+  // Store in cache
+  const finalSources = [...new Set(unique.map(e=>e.source))];
+  exploreCache.set(cacheKey, { events: unique, sources: finalSources, fetchedAt: Date.now() });
+  // Evict old entries to save memory (keep max 20 cache entries)
+  if(exploreCache.size > 20) {
+    const oldest = [...exploreCache.entries()].sort((a,b)=>a[1].fetchedAt-b[1].fetchedAt)[0][0];
+    exploreCache.delete(oldest);
+  }
+
+  res.json({ events: unique, sources: finalSources });
 });
 
 
