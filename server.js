@@ -298,7 +298,7 @@ app.get('/api/explore-events', async (req, res) => {
   // ── 1. Resident Advisor ── music / club / electronic ──────────
   const fetchRA = async () => {
     try {
-      const citySlug = deriveRACity(location);
+      const citySlug = deriveRACity(location, lat, lng);
       const query = JSON.stringify({
         query:`query EventListings($filters:FilterInputDtoInput,$pageSize:Int){eventListings(filters:$filters,pageSize:$pageSize,page:1,sort:{startTime:ASCENDING}){data{event{id title date startTime endTime images{filename}venue{name area{name}}pick{blurb}artists{name}cost contentUrl}}}}`,
         variables:{ filters:{ areas:{slug:citySlug}, listingDate:{gte:startDate,lte:endDate} }, pageSize:15 }
@@ -361,7 +361,7 @@ app.get('/api/explore-events', async (req, res) => {
   // ── 3. Eventbrite — activities, arts, community ───────────────
   const fetchEventbrite = async () => {
     try {
-      const city = deriveEBCity(location);
+      const city = deriveEBCity(location, lat, lng);
       const pages = [
         `https://www.eventbrite.com.au/d/australia--${city}/activities--events/?start_date=${startDate}&end_date=${endDate}`,
         `https://www.eventbrite.com.au/d/australia--${city}/arts--events/?start_date=${startDate}&end_date=${endDate}`,
@@ -433,8 +433,40 @@ app.get('/api/explore-events', async (req, res) => {
 
   await Promise.allSettled([fetchRA(),fetchGoogle(),fetchEventbrite(),fetchMeetup()]);
 
-  const seen=new Set();
-  const unique=results.filter(e=>{
+  // Filter out events that are clearly in the wrong city
+  // We do this by checking venue name/suburb against expected city
+  const expectedCity = deriveEBCity(location, lat, lng);
+  const cityKeywords = {
+    sydney: /sydney|nsw|barangaroo|pyrmont|newtown|bondi|manly|parramatta|surry|darlinghurst|paddington|glebe|balmain|rozelle|leichhardt|redfern|waterloo|zetland|chippendale|haymarket|ultimo|broadway|forest|mosman|neutral.bay|chatswood|north.shore|northern.beach|eastern.suburb|inner.west|2\d{3}/i,
+    melbourne: /melbourne|vic|fitzroy|collingwood|richmond|brunswick|st.kilda|southbank|docklands|prahran|windsor|hawthorn|footscray|cbd|3\d{3}/i,
+    brisbane: /brisbane|qld|fortitude|valley|south.bank|west.end|new.farm|teneriffe|woolloongabba|4\d{3}/i,
+    perth: /perth|wa|fremantle|subiaco|northbridge|leederville|6\d{3}/i,
+    adelaide: /adelaide|sa|glenelg|5\d{3}/i,
+    'gold-coast': /gold.coast|surfers|broadbeach|burleigh/i,
+    australia: /.*/
+  };
+  const cityPattern = cityKeywords[expectedCity] || /.*/;
+
+  const filtered = results.filter(e => {
+    if(!e.location && !e.suburb) return true; // keep if no location info
+    const loc = ((e.location || '') + ' ' + (e.suburb || '')).trim();
+    if(!loc) return true;
+    // Always keep if matches expected city
+    if(cityPattern.test(loc)) return true;
+    // Reject if explicitly in another major city
+    const otherCities = ['sydney','melbourne','brisbane','perth','adelaide','gold-coast'].filter(c=>c!==expectedCity);
+    const otherPatterns = {
+      sydney: /\bsydney\b|\bnsw\b/i, melbourne: /\bmelbourne\b|\bvic\b/i,
+      brisbane: /\bbrisbane\b|\bqld\b/i, perth: /\bperth\b|\bwa\b/i,
+      adelaide: /\badelaide\b|\bsa\b/i, 'gold-coast': /gold.coast/i
+    };
+    for(const other of otherCities) {
+      if(otherPatterns[other]?.test(loc)) return false;
+    }
+    return true; // keep if we can't determine
+  });
+
+  const unique=filtered.filter(e=>{
     if(!e.name||!e.date) return false;
     const key=(e.name+e.date).toLowerCase().replace(/[^a-z0-9]/g,'').slice(0,35);
     if(seen.has(key)) return false; seen.add(key); return true;
@@ -444,24 +476,46 @@ app.get('/api/explore-events', async (req, res) => {
   res.json({events:unique,sources:[...new Set(unique.map(e=>e.source))]});
 });
 
-function deriveRACity(l){
-  l=l.toLowerCase();
-  if(/sydney|nsw|2\d{3}/.test(l))return'sydney';
-  if(/melbourne|vic|fitzroy|collingwood|richmond|3\d{3}/.test(l))return'melbourne';
-  if(/brisbane|qld|4\d{3}/.test(l))return'brisbane';
-  if(/perth|wa|6\d{3}/.test(l))return'perth';
-  if(/adelaide|sa|5\d{3}/.test(l))return'adelaide';
-  return'australia';
+function deriveRACity(l, lat, lng) {
+  // Use coordinates first (most accurate)
+  if(lat && lng) {
+    const lt = parseFloat(lat), ln = parseFloat(lng);
+    if(lt > -34.5 && lt < -33 && ln > 150 && ln < 152) return 'sydney';
+    if(lt > -38.5 && lt < -37 && ln > 144 && ln < 146) return 'melbourne';
+    if(lt > -28 && lt < -27 && ln > 152 && ln < 154) return 'brisbane';
+    if(lt > -32.5 && lt < -31 && ln > 115 && ln < 116.5) return 'perth';
+    if(lt > -35.5 && lt < -34.5 && ln > 138 && ln < 139) return 'adelaide';
+  }
+  l = l.toLowerCase();
+  if(/sydney|nsw|2\d{3}/.test(l)) return 'sydney';
+  if(/melbourne|vic|fitzroy|collingwood|richmond|3\d{3}/.test(l)) return 'melbourne';
+  if(/brisbane|qld|4\d{3}/.test(l)) return 'brisbane';
+  if(/perth|wa|6\d{3}/.test(l)) return 'perth';
+  if(/adelaide|sa|5\d{3}/.test(l)) return 'adelaide';
+  return 'australia';
 }
-function deriveEBCity(l){
-  l=l.toLowerCase();
-  if(/sydney/.test(l))return'sydney';
-  if(/melbourne|fitzroy|collingwood|richmond|brunswick/.test(l))return'melbourne';
-  if(/brisbane/.test(l))return'brisbane';
-  if(/perth/.test(l))return'perth';
-  if(/adelaide/.test(l))return'adelaide';
-  if(/gold.?coast/.test(l))return'gold-coast';
-  return'australia';
+
+function deriveEBCity(l, lat, lng) {
+  // Use coordinates first
+  if(lat && lng) {
+    const lt = parseFloat(lat), ln = parseFloat(lng);
+    if(lt > -34.5 && lt < -33 && ln > 150 && ln < 152) return 'sydney';
+    if(lt > -38.5 && lt < -37 && ln > 144 && ln < 146) return 'melbourne';
+    if(lt > -28 && lt < -27 && ln > 152 && ln < 154) return 'brisbane';
+    if(lt > -32.5 && lt < -31 && ln > 115 && ln < 116.5) return 'perth';
+    if(lt > -35.5 && lt < -34.5 && ln > 138 && ln < 139) return 'adelaide';
+    if(lt > -28.5 && lt < -27.5 && ln > 153 && ln < 154) return 'gold-coast';
+    if(lt > -33.5 && lt < -32.5 && ln > 151 && ln < 152) return 'newcastle';
+    if(lt > -34.7 && lt < -34.3 && ln > 150.5 && ln < 151) return 'wollongong';
+  }
+  l = l.toLowerCase();
+  if(/sydney|barangaroo|pyrmont|surry.hills|newtown|glebe|balmain|darlinghurst|paddington|bondi|manly|parramatta|chatswood/.test(l)) return 'sydney';
+  if(/melbourne|fitzroy|collingwood|richmond|brunswick|st.kilda|southbank|docklands|prahan/.test(l)) return 'melbourne';
+  if(/brisbane|fortitude.valley|south.bank|west.end/.test(l)) return 'brisbane';
+  if(/perth|fremantle|subiaco|northbridge/.test(l)) return 'perth';
+  if(/adelaide/.test(l)) return 'adelaide';
+  if(/gold.coast|surfers/.test(l)) return 'gold-coast';
+  return 'australia';
 }
 function parseGoogleDate(startDate,when){
   if(startDate){if(/^\d{4}-\d{2}-\d{2}$/.test(startDate))return startDate;const m=startDate.match(/(\w+)\s+(\d+),?\s+(\d{4})/);if(m){const mo={jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul:7,aug:8,sep:9,oct:10,nov:11,dec:12}[m[1].toLowerCase().slice(0,3)];if(mo)return`${m[3]}-${String(mo).padStart(2,'0')}-${String(m[2]).padStart(2,'0')}`;}}
