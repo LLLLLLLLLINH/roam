@@ -14,54 +14,81 @@ app.use((req, res, next) => {
   next();
 });
 
-// ── In-memory store + write-through to JSONBin ────────────────
-// JSONBin.io: free persistent JSON storage, 10,000 req/day free
-// Set JSONBIN_BIN_ID and JSONBIN_API_KEY as Render env variables
+// ── JSONBin persistent store ───────────────────────────────────
 const JSONBIN_BIN_ID  = process.env.JSONBIN_BIN_ID;
 const JSONBIN_API_KEY = process.env.JSONBIN_API_KEY;
 const JSONBIN_URL = `https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`;
 
 let store = { users: {}, events: {} };
 let storeReady = false;
-let saveQueued = false;
+let saveQueued = null;
+let loadAttempts = 0;
 
 async function loadFromCloud() {
   if(!JSONBIN_BIN_ID || !JSONBIN_API_KEY) { storeReady = true; return; }
+  loadAttempts++;
   try {
     const r = await fetch(JSONBIN_URL + '/latest', {
-      headers: { 'X-Master-Key': JSONBIN_API_KEY }
+      headers: { 'X-Master-Key': JSONBIN_API_KEY },
     });
     if(r.ok) {
       const j = await r.json();
-      store = j.record || store;
-      console.log('Loaded from JSONBin:', Object.keys(store.users||{}).length, 'users');
+      const loaded = j.record || {};
+      // Only use loaded data if it has actual content
+      if(loaded.users || loaded.events) {
+        store = { users: loaded.users || {}, events: loaded.events || {} };
+        console.log(`Loaded from JSONBin: ${Object.keys(store.users).length} users, ${Object.keys(store.events).length} gardens`);
+      }
+      storeReady = true;
+    } else {
+      console.log('JSONBin load HTTP error:', r.status);
+      // Retry once after 3s
+      if(loadAttempts < 3) setTimeout(loadFromCloud, 3000);
+      else storeReady = true;
     }
-  } catch(e) { console.log('JSONBin load failed:', e.message); }
-  storeReady = true;
+  } catch(e) {
+    console.log('JSONBin load failed:', e.message);
+    if(loadAttempts < 3) setTimeout(loadFromCloud, 3000);
+    else storeReady = true;
+  }
 }
 
 async function saveToCloud() {
   if(!JSONBIN_BIN_ID || !JSONBIN_API_KEY) return;
-  if(saveQueued) return;
-  saveQueued = true;
-  setTimeout(async () => {
-    saveQueued = false;
+  // Debounce — cancel pending save and schedule new one
+  if(saveQueued) clearTimeout(saveQueued);
+  saveQueued = setTimeout(async () => {
+    saveQueued = null;
     try {
-      await fetch(JSONBIN_URL, {
+      const r = await fetch(JSONBIN_URL, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', 'X-Master-Key': JSONBIN_API_KEY },
         body: JSON.stringify(store)
       });
+      if(r.ok) console.log('Saved to JSONBin');
+      else console.log('JSONBin save error:', r.status);
     } catch(e) { console.log('JSONBin save failed:', e.message); }
-  }, 500); // debounce 500ms
+  }, 800);
 }
 
+// Load on startup
 loadFromCloud();
 
-// ── Wait for store to be ready ─────────────────────────────────
+// ── Wait for store — with longer timeout and retry ─────────────
+async function waitForStore() {
+  if(storeReady) return;
+  // Wait up to 8 seconds for JSONBin load
+  for(let i = 0; i < 16; i++) {
+    await new Promise(r => setTimeout(r, 500));
+    if(storeReady) return;
+  }
+  console.log('Store wait timeout — proceeding with current state');
+  storeReady = true;
+}
+
 function ready(fn) {
   return async (req, res) => {
-    if(!storeReady) await new Promise(r => setTimeout(r, 1000));
+    await waitForStore();
     fn(req, res);
   };
 }
@@ -79,10 +106,11 @@ function gardenCodeFromId(gardenId) {
 app.post('/api/user', ready((req, res) => {
   const { username, passwordHash, name, color, gardenId, joinedAt, pending, isOwner } = req.body;
   if(!username || !gardenId) return res.status(400).json({ error: 'Missing fields' });
-  const existing = (store.users||{})[username] || {};
+  const existing = (store.users || {})[username] || {};
   store.users = store.users || {};
   store.users[username] = {
-    username, name, color, gardenId, joinedAt, pending: !!pending, isOwner: !!isOwner,
+    username, name, color, gardenId, joinedAt,
+    pending: !!pending, isOwner: !!isOwner,
     password: passwordHash || existing.password || ''
   };
   saveToCloud();
@@ -117,16 +145,27 @@ app.delete('/api/garden/:gardenId/user/:username', ready((req, res) => {
   res.json({ ok: true });
 }));
 
-// Get events
+// Get events — NEVER returns empty if we have data
 app.get('/api/garden/:gardenId/events', ready((req, res) => {
-  res.json((store.events || {})[req.params.gardenId] || []);
+  const events = (store.events || {})[req.params.gardenId];
+  // Return null if no data for this garden (client should keep localStorage)
+  // Return [] only if explicitly saved as empty
+  if(events === undefined) return res.json(null);
+  res.json(events);
 }));
 
-// Save events
+// Save events — reject empty arrays if server already has data (protection against cold-start wipe)
 app.put('/api/garden/:gardenId/events', ready((req, res) => {
   if(!Array.isArray(req.body)) return res.status(400).json({ error: 'Expected array' });
+  const gid = req.params.gardenId;
+  const existing = (store.events || {})[gid];
+  // Refuse to overwrite real data with empty array
+  if(req.body.length === 0 && existing && existing.length > 0) {
+    console.log(`Refused to overwrite ${existing.length} events with empty array for garden ${gid}`);
+    return res.json({ ok: true, skipped: true });
+  }
   store.events = store.events || {};
-  store.events[req.params.gardenId] = req.body;
+  store.events[gid] = req.body;
   saveToCloud();
   res.json({ ok: true });
 }));
@@ -150,6 +189,13 @@ app.post('/api/login', ready((req, res) => {
 }));
 
 // Health check
-app.get('/api/health', (req, res) => res.json({ ok: true, users: Object.keys(store.users||{}).length }));
+app.get('/api/health', (req, res) => {
+  res.json({
+    ok: true,
+    storeReady,
+    users: Object.keys(store.users||{}).length,
+    gardens: Object.keys(store.events||{}).length
+  });
+});
 
 app.listen(PORT, () => console.log('Roam. server on port', PORT));
