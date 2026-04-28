@@ -279,5 +279,210 @@ app.get('/api/fetch-event-url', async (req, res) => {
   }
 });
 
+// ── Real event search — RA + Google + Eventbrite + Meetup ─────
+app.get('/api/explore-events', async (req, res) => {
+  const { lat, lng, label, start, end, when } = req.query;
+  if(!lat || !lng) return res.status(400).json({ error: 'lat/lng required' });
+
+  const SERPAPI_KEY = process.env.SERPAPI_KEY || '';
+  const startDate = start || new Date().toISOString().slice(0,10);
+  const endDate   = end   || new Date(Date.now() + 30*86400000).toISOString().slice(0,10);
+  const location  = label || `${lat},${lng}`;
+  const results   = [];
+
+  const fetchSafe = async (url, opts={}, ms=12000) => {
+    try { return await fetch(url, { ...opts, signal: AbortSignal.timeout(ms) }); }
+    catch(_) { return null; }
+  };
+
+  // ── 1. Resident Advisor ── music / club / electronic ──────────
+  const fetchRA = async () => {
+    try {
+      const citySlug = deriveRACity(location);
+      const query = JSON.stringify({
+        query:`query EventListings($filters:FilterInputDtoInput,$pageSize:Int){eventListings(filters:$filters,pageSize:$pageSize,page:1,sort:{startTime:ASCENDING}){data{event{id title date startTime endTime images{filename}venue{name area{name}}pick{blurb}artists{name}cost contentUrl}}}}`,
+        variables:{ filters:{ areas:{slug:citySlug}, listingDate:{gte:startDate,lte:endDate} }, pageSize:15 }
+      });
+      const r = await fetchSafe('https://ra.co/graphql',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','Accept':'application/json','User-Agent':'Mozilla/5.0','Referer':'https://ra.co','Origin':'https://ra.co'},
+        body:query
+      });
+      if(!r?.ok) return;
+      const data = await r.json();
+      for(const item of (data?.data?.eventListings?.data||[])) {
+        const e=item.event; if(!e?.title) continue;
+        const dt=e.startTime||e.date||'';
+        const artists=(e.artists||[]).map(a=>a.name).filter(Boolean);
+        results.push({
+          id:'ra_'+e.id, name:e.title,
+          date:dt.slice(0,10), time:dt.length>10?dt.slice(11,16):null,
+          location:[e.venue?.name,e.venue?.area?.name].filter(Boolean).join(', '),
+          suburb:e.venue?.area?.name||location, category:'music',
+          url:e.contentUrl?'https://ra.co'+e.contentUrl:'https://ra.co/events',
+          image:e.images?.[0]?.filename?'https://ra.co'+e.images[0].filename:null,
+          description:[e.pick?.blurb, artists.length?'Artists: '+artists.join(', '):null].filter(Boolean).join('\n\n'),
+          priceRange:e.cost||null, source:'Resident Advisor'
+        });
+      }
+      console.log('RA:',results.filter(r=>r.source==='Resident Advisor').length);
+    } catch(e){console.log('RA:',e.message);}
+  };
+
+  // ── 2. Google Events via SerpAPI — markets, fairs, public ─────
+  const fetchGoogle = async () => {
+    if(!SERPAPI_KEY) return;
+    try {
+      const queries = [`markets near ${location}`,`community events ${location}`,`things to do ${location} this weekend`];
+      for(const q of queries) {
+        const r = await fetchSafe(`https://serpapi.com/search.json?engine=google_events&q=${encodeURIComponent(q)}&location=${encodeURIComponent(location)}&hl=en&gl=au&api_key=${SERPAPI_KEY}`,{},8000);
+        if(!r?.ok) continue;
+        const data = await r.json();
+        for(const e of (data.events_results||[]).slice(0,8)) {
+          if(!e.title) continue;
+          results.push({
+            id:'serp_'+Buffer.from(e.title+(e.date?.start_date||'')).toString('base64').slice(0,14),
+            name:e.title,
+            date:parseGoogleDate(e.date?.start_date,e.date?.when),
+            time:parseGoogleTime(e.date?.when),
+            location:[e.venue?.name,e.address?.[0],e.address?.[1]].filter(Boolean).join(', '),
+            suburb:e.address?.[1]||location,
+            category:guessCategory(e.title+' '+(e.description||'')),
+            url:e.link||e.ticket_info?.[0]?.link, image:e.thumbnail,
+            description:e.description||'', priceRange:e.ticket_info?.[0]?.price||null,
+            source:'Google Events'
+          });
+        }
+      }
+      console.log('Google:',results.filter(r=>r.source==='Google Events').length);
+    } catch(e){console.log('Google:',e.message);}
+  };
+
+  // ── 3. Eventbrite — activities, arts, community ───────────────
+  const fetchEventbrite = async () => {
+    try {
+      const city = deriveEBCity(location);
+      const pages = [
+        `https://www.eventbrite.com.au/d/australia--${city}/activities--events/?start_date=${startDate}&end_date=${endDate}`,
+        `https://www.eventbrite.com.au/d/australia--${city}/arts--events/?start_date=${startDate}&end_date=${endDate}`,
+        `https://www.eventbrite.com.au/d/australia--${city}/food-and-drink--events/?start_date=${startDate}&end_date=${endDate}`,
+      ];
+      for(const url of pages) {
+        const r = await fetchSafe(url,{headers:{
+          'User-Agent':'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
+          'Accept':'text/html','Accept-Language':'en-AU,en;q=0.9'
+        }},14000);
+        if(!r?.ok) continue;
+        const html = await r.text();
+        // JSON-LD
+        for(const m of html.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/gi)) {
+          try {
+            const raw=JSON.parse(m[1]);
+            const items=Array.isArray(raw)?raw:(raw['@graph']||[raw]);
+            for(const item of items) {
+              if(item['@type']!=='Event'||!item.name) continue;
+              const dt=item.startDate||'';
+              results.push({
+                id:'eb_'+Buffer.from(item.name+(item.startDate||'')).toString('base64').slice(0,14),
+                name:item.name, date:dt.slice(0,10), time:dt.length>10?dt.slice(11,16):null,
+                location:[item.location?.name,item.location?.address?.streetAddress,item.location?.address?.addressLocality].filter(Boolean).join(', '),
+                suburb:item.location?.address?.addressLocality,
+                category:guessCategory(item.name+' '+(item.description||'')),
+                url:item.url, image:Array.isArray(item.image)?item.image[0]:item.image,
+                description:(item.description||'').replace(/<[^>]*>/g,'').slice(0,400),
+                priceRange:item.offers?.price!=null?(parseFloat(item.offers.price)===0?'Free':'$'+parseFloat(item.offers.price).toFixed(0)):null,
+                source:'Eventbrite'
+              });
+            }
+          } catch(_){}
+        }
+        // __SERVER_DATA__ fallback
+        const sd=html.match(/window\.__SERVER_DATA__\s*=\s*({[\s\S]+?});\s*(?:window|<\/script>)/);
+        if(sd){try{const d=JSON.parse(sd[1]);for(const e of(d?.search_data?.events?.results||[]).slice(0,10)){if(!e.name||!e.start_date)continue;results.push({id:'eb2_'+e.id,name:e.name,date:e.start_date,time:e.start_time?.slice(0,5),location:[e.primary_venue?.name,e.primary_venue?.address?.city].filter(Boolean).join(', '),suburb:e.primary_venue?.address?.city,category:guessCategory(e.name),url:e.url,image:e.image?.url,description:e.summary||'',priceRange:e.is_free?'Free':null,source:'Eventbrite'});}}catch(_){}}
+      }
+      console.log('Eventbrite:',results.filter(r=>r.source==='Eventbrite').length);
+    } catch(e){console.log('Eventbrite:',e.message);}
+  };
+
+  // ── 4. Meetup — community/social ──────────────────────────────
+  const fetchMeetup = async () => {
+    try {
+      const r = await fetchSafe(`https://api.meetup.com/find/upcoming_events?lat=${lat}&lon=${lng}&radius=30&page=10`,{
+        headers:{'Accept':'application/json','User-Agent':'Mozilla/5.0'}
+      },8000);
+      if(!r?.ok) return;
+      const data=await r.json();
+      for(const e of (data.events||[]).slice(0,10)) {
+        if(!e.name) continue;
+        const dt=e.time?new Date(e.time):null;
+        results.push({
+          id:'mu_'+e.id, name:e.name,
+          date:dt?dt.toISOString().slice(0,10):null,
+          time:dt?dt.toTimeString().slice(0,5):null,
+          location:[e.venue?.name,e.venue?.city].filter(Boolean).join(', '),
+          suburb:e.venue?.city||location,
+          category:guessCategory(e.name+' '+(e.description||'')),
+          url:e.link, image:e.group?.key_photo?.photo_link,
+          description:(e.description||'').replace(/<[^>]*>/g,'').slice(0,300),
+          priceRange:e.fee?'$'+e.fee.amount:'Free', source:'Meetup'
+        });
+      }
+      console.log('Meetup:',results.filter(r=>r.source==='Meetup').length);
+    } catch(e){console.log('Meetup:',e.message);}
+  };
+
+  await Promise.allSettled([fetchRA(),fetchGoogle(),fetchEventbrite(),fetchMeetup()]);
+
+  const seen=new Set();
+  const unique=results.filter(e=>{
+    if(!e.name||!e.date) return false;
+    const key=(e.name+e.date).toLowerCase().replace(/[^a-z0-9]/g,'').slice(0,35);
+    if(seen.has(key)) return false; seen.add(key); return true;
+  });
+  unique.sort((a,b)=>(a.date||'').localeCompare(b.date||'')||(a.time||'').localeCompare(b.time||''));
+  console.log('Total:',unique.length,'events');
+  res.json({events:unique,sources:[...new Set(unique.map(e=>e.source))]});
+});
+
+function deriveRACity(l){
+  l=l.toLowerCase();
+  if(/sydney|nsw|2\d{3}/.test(l))return'sydney';
+  if(/melbourne|vic|fitzroy|collingwood|richmond|3\d{3}/.test(l))return'melbourne';
+  if(/brisbane|qld|4\d{3}/.test(l))return'brisbane';
+  if(/perth|wa|6\d{3}/.test(l))return'perth';
+  if(/adelaide|sa|5\d{3}/.test(l))return'adelaide';
+  return'australia';
+}
+function deriveEBCity(l){
+  l=l.toLowerCase();
+  if(/sydney/.test(l))return'sydney';
+  if(/melbourne|fitzroy|collingwood|richmond|brunswick/.test(l))return'melbourne';
+  if(/brisbane/.test(l))return'brisbane';
+  if(/perth/.test(l))return'perth';
+  if(/adelaide/.test(l))return'adelaide';
+  if(/gold.?coast/.test(l))return'gold-coast';
+  return'australia';
+}
+function parseGoogleDate(startDate,when){
+  if(startDate){if(/^\d{4}-\d{2}-\d{2}$/.test(startDate))return startDate;const m=startDate.match(/(\w+)\s+(\d+),?\s+(\d{4})/);if(m){const mo={jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul:7,aug:8,sep:9,oct:10,nov:11,dec:12}[m[1].toLowerCase().slice(0,3)];if(mo)return`${m[3]}-${String(mo).padStart(2,'0')}-${String(m[2]).padStart(2,'0')}`;}}
+  if(when){const m=when.match(/(\w+)\s+(\d+)/);if(m){const mo={jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul:7,aug:8,sep:9,oct:10,nov:11,dec:12}[m[1].toLowerCase().slice(0,3)];if(mo)return`${new Date().getFullYear()}-${String(mo).padStart(2,'0')}-${String(m[2]).padStart(2,'0')}`;}}
+  return null;
+}
+function parseGoogleTime(when){
+  if(!when)return null;const m=when.match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm)/i);if(!m)return null;
+  let h=parseInt(m[1]),min=parseInt(m[2]||'0');
+  if(m[3].toLowerCase()==='pm'&&h<12)h+=12;if(m[3].toLowerCase()==='am'&&h===12)h=0;
+  return`${String(h).padStart(2,'0')}:${String(min).padStart(2,'0')}`;
+}
+function guessCategory(text){
+  if(!text)return'other';const t=text.toLowerCase();
+  if(/rock|pop|jazz|music|concert|hip.?hop|rnb|r&b|electronic|classical|band|gig|dj|acoustic|rave|techno|house|club/.test(t))return'music';
+  if(/food|wine|beer|culinary|market|dining|brunch|feast|tasting|coffee/.test(t))return'food';
+  if(/art|theatre|theater|film|comedy|dance|exhibition|gallery|opera|circus|museum|standup|improv/.test(t))return'art';
+  if(/sport|fitness|run|yoga|swim|marathon|cycling|triathlon|gym|pilates|hike|surf|cricket|football|soccer|tennis/.test(t))return'sports';
+  if(/community|festival|fair|market|street|neighbourhood|family|kids|charity|fundrais|volunteer|pride/.test(t))return'community';
+  return'other';
+}
+
 // Start with WebSocket support
 server.listen(PORT, () => console.log('Roam. server (WS enabled) on port', PORT));
