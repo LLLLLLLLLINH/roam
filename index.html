@@ -365,8 +365,20 @@ h1,h2,h3 { font-family: var(--font-display); font-weight: 400; }
 .settings-label { font-size: 0.9rem; color: var(--ink); }
 .settings-value { font-size: 0.85rem; color: var(--ink-muted); }
 
-/* SVG drawings */
-.hand-circle { filter: none; }
+/* ── EXPLORE ── */
+.explore-filter { padding: 6px 14px; border-radius: 20px; font-size: 0.8rem; font-weight: 500; cursor: pointer; border: 1.5px solid var(--border); background: #fff; color: var(--ink-muted); transition: all 0.15s; }
+.explore-filter.active { background: var(--moss); color: #fff; border-color: var(--moss); }
+.explore-card { background: #fff; border: 1px solid var(--border); border-radius: var(--r); padding: 14px; margin-bottom: 12px; cursor: pointer; transition: all 0.15s; }
+.explore-card:active { transform: scale(0.99); }
+.explore-img { width: 100%; height: 120px; object-fit: cover; border-radius: var(--r-sm); margin-bottom: 10px; background: var(--cream-dark); }
+
+/* ── MILESTONES ── */
+.milestone-badge { display: inline-flex; align-items: center; gap: 6px; background: #fff; border: 1.5px solid var(--border); border-radius: var(--r); padding: 10px 12px; margin-bottom: 8px; width: 100%; }
+.milestone-badge.earned { border-color: var(--sunflower); background: #fffbea; }
+.milestone-icon { font-size: 1.4rem; flex-shrink: 0; }
+.milestone-info { flex: 1; min-width: 0; }
+.milestone-name { font-weight: 600; font-size: 0.85rem; color: var(--ink); }
+.milestone-desc { font-size: 0.75rem; color: var(--ink-muted); margin-top: 1px; }
 
 /* ── RESPONSIVE TWEAKS ── */
 /* ── MOBILE FIRST RESPONSIVE ──────────────────────────────────
@@ -768,11 +780,23 @@ html { font-size: 14px; }
 
   <div class="tab-content" id="tab-garden">
     <div class="garden-header">
-      <div class="garden-title">My garden 🌿</div>
-      <div class="period-tabs">
-        <button class="period-tab active" onclick="setGardenPeriod('week',this)">Week</button>
-        <button class="period-tab" onclick="setGardenPeriod('month',this)">Month</button>
-        <button class="period-tab" onclick="setGardenPeriod('year',this)">Year</button>
+      <div>
+        <div class="garden-title" id="garden-name-display" onclick="editGardenName()" style="cursor:pointer;" title="Tap to rename">My garden 🌿</div>
+        <div style="font-size:0.72rem;color:var(--ink-muted);margin-top:1px;">Tap to rename · <span id="garden-season-label"></span></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;">
+        <select id="garden-theme-select" onchange="setGardenTheme(this.value)" style="font-size:0.75rem;border:1px solid var(--border);border-radius:var(--r-sm);padding:4px 8px;background:#fff;color:var(--ink-muted);cursor:pointer;">
+          <option value="default">🌿 Classic</option>
+          <option value="sakura">🌸 Sakura</option>
+          <option value="desert">🌵 Desert</option>
+          <option value="tropical">🌴 Tropical</option>
+          <option value="winter">❄️ Winter</option>
+        </select>
+        <div class="period-tabs">
+          <button class="period-tab active" onclick="setGardenPeriod('week',this)">Week</button>
+          <button class="period-tab" onclick="setGardenPeriod('month',this)">Month</button>
+          <button class="period-tab" onclick="setGardenPeriod('year',this)">Year</button>
+        </div>
       </div>
     </div>
     <div class="garden-canvas" id="garden-canvas">
@@ -812,6 +836,29 @@ html { font-size: 14px; }
     <div id="garden-attended-list"></div>
   </div>
 
+  <div class="tab-content" id="tab-explore">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+      <div style="font-family:var(--font-display);font-size:1.5rem;">Explore 🗺️</div>
+      <button id="explore-location-btn" onclick="requestExploreLocation()" class="btn btn-sm btn-secondary" style="font-size:0.78rem;">📍 Use my location</button>
+    </div>
+    <div id="explore-location-display" style="font-size:0.8rem;color:var(--ink-muted);margin-bottom:12px;"></div>
+    <!-- Interest filters -->
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px;" id="explore-filters">
+      <button class="explore-filter active" data-cat="all" onclick="setExploreFilter(this)">All</button>
+      <button class="explore-filter" data-cat="music" onclick="setExploreFilter(this)">🎵 Music</button>
+      <button class="explore-filter" data-cat="food" onclick="setExploreFilter(this)">🍜 Food</button>
+      <button class="explore-filter" data-cat="art" onclick="setExploreFilter(this)">🎨 Art</button>
+      <button class="explore-filter" data-cat="sports" onclick="setExploreFilter(this)">⚡ Active</button>
+      <button class="explore-filter" data-cat="community" onclick="setExploreFilter(this)">🌿 Community</button>
+    </div>
+    <div id="explore-results">
+      <div style="text-align:center;padding:40px 20px;color:var(--ink-muted);">
+        <div style="font-size:2rem;margin-bottom:12px;">🗺️</div>
+        <div style="font-size:0.9rem;">Tap "Use my location" to discover events happening near you this weekend</div>
+      </div>
+    </div>
+  </div>
+
   <div class="tab-content" id="tab-profile">
     <div class="profile-header">
       <div class="profile-avatar" id="profile-avatar"></div>
@@ -826,6 +873,9 @@ html { font-size: 14px; }
       <div style="font-size:0.75rem;font-weight:500;text-transform:uppercase;letter-spacing:0.06em;color:var(--ink-muted);margin-bottom:10px;">Your garden summary</div>
       <div class="garden-stats" id="profile-stats"></div>
     </div>
+
+    <div style="font-size:0.75rem;font-weight:500;text-transform:uppercase;letter-spacing:0.06em;color:var(--ink-muted);margin-bottom:10px;margin-top:4px;">Milestones 🏅</div>
+    <div id="milestones-list" style="margin-bottom:20px;"></div>
 
     <div style="font-size:0.75rem;font-weight:500;text-transform:uppercase;letter-spacing:0.06em;color:var(--ink-muted);margin-bottom:10px;">Your garden party 🌸</div>
     <div style="font-size:0.8rem;color:var(--ink-muted);margin-bottom:12px;">Up to 4 gardeners share this calendar</div>
@@ -890,6 +940,10 @@ html { font-size: 14px; }
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 22V12"/><path d="M12 12C12 8 8 5 4 6c0 4 3 7 8 6"/><path d="M12 12c0-4 4-7 8-6 0 4-3 7-8 6"/></svg>
       Garden
     </button>
+    <button class="nav-item" onclick="switchTab('explore',this)" data-tab="explore">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>
+      Explore
+    </button>
     <button class="nav-item" onclick="switchTab('profile',this)" data-tab="profile">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
       Profile
@@ -946,6 +1000,16 @@ html { font-size: 14px; }
         <div class="cat-item" data-cat="sports" onclick="selectCat(this)"><span class="cat-emoji">⚡</span>Active</div>
         <div class="cat-item" data-cat="other" onclick="selectCat(this)"><span class="cat-emoji">✨</span>Other</div>
       </div>
+    </div>
+
+    <div class="modal-section">
+      <label class="form-label">Repeat</label>
+      <select class="form-input" id="ev-recur" style="-webkit-appearance:none;appearance:none;">
+        <option value="">Does not repeat</option>
+        <option value="weekly">Every week</option>
+        <option value="fortnightly">Every 2 weeks</option>
+        <option value="monthly">Every month</option>
+      </select>
     </div>
 
     <div class="modal-section">
@@ -1150,15 +1214,14 @@ function getEvents(gardenId) { return DB.get('events_'+gardenId) || [] }
 
 function saveEvents(gardenId, evs) {
   DB.set('events_'+gardenId, evs);
-  // Only push to server if we have actual events, or if explicitly clearing
-  // Don't push empty array on startup before events load
   if(evs.length > 0 || DB.get('events_push_allowed_'+gardenId)) {
     DB.set('events_push_allowed_'+gardenId, true);
     apiFetch('/api/garden/' + gardenId + '/events', {
-      method: 'PUT',
-      body: JSON.stringify(evs)
+      method: 'PUT', body: JSON.stringify(evs)
     });
   }
+  // Broadcast to garden members via WebSocket
+  wsBroadcast('events_updated', { events: evs });
 }
 
 async function pullEvents(gardenId) {
@@ -1323,6 +1386,7 @@ async function doSignup() {
   } else {
     showToast('Welcome to Roam., '+name+' 🌱');
     loadApp();
+    setTimeout(() => showPostSignupOnboarding(), 800);
   }
 }
 
@@ -1370,24 +1434,23 @@ function randomColor() {
 // ═══════════════════════════════════════
 async function loadApp() {
   showScreen('app');
+  renderGardenName();
+  applyGardenTheme();
   renderWeek();
   renderCalendar();
   renderGarden();
   renderPeople();
   renderProfile();
   startLiveUpdates();
+  connectWebSocket();
 
-  // Pull fresh data from server in background
   if(currentUser) {
     const gardenId = currentUser.gardenId;
-    // Pull events
     const evs = await pullEvents(gardenId);
     if(evs) { renderWeek(); renderCalendar(); renderGarden(); }
-    // Pull users (members + pending requests)
     await pullGardenUsers(gardenId);
     renderPeople();
-    renderProfile(); // re-render after server pull
-    // Push current user to server (ensures they're registered)
+    renderProfile();
     pushUserToServer(currentUser);
   }
 
@@ -1478,9 +1541,10 @@ function switchTab(tab, el) {
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   document.getElementById('tab-'+tab).classList.add('active');
   el.classList.add('active');
-  if(tab==='garden') renderGarden();
-  if(tab==='profile') { renderPeople(); renderProfile(); }
+  if(tab==='garden') { applyGardenTheme(); renderGarden(); }
+  if(tab==='profile') { renderPeople(); renderProfile(); renderMilestones(); }
   if(tab==='calendar') renderCalendar();
+  if(tab==='explore') renderExplore();
 }
 
 // ═══════════════════════════════════════
@@ -2106,6 +2170,18 @@ async function fetchEventFromUrl(rawUrl) {
   // (We'll use this after fetching HTML to target Eventbrite-specific JSON)
 
   const fetchViaProxy = async (targetUrl) => {
+    // Try our own server-side fetch first (no CORS, works for Eventbrite)
+    try {
+      const serverFetch = await Promise.race([
+        apiFetch('/api/fetch-event-url?url=' + encodeURIComponent(targetUrl)),
+        new Promise((_,r) => setTimeout(() => r('timeout'), 6000))
+      ]);
+      if(serverFetch && serverFetch.ok) {
+        return (serverFetch.meta || '') + '\n' + (serverFetch.scripts || '') + '\n<title>' + (serverFetch.title||'') + '</title>';
+      }
+    } catch(_) {}
+
+    // Fall back to public CORS proxies
     const proxies = [
       async u => {
         const r = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(u)}&t=${Date.now()}`);
@@ -2125,7 +2201,7 @@ async function fetchEventFromUrl(rawUrl) {
         if(/^\s*\d{3}\s+(not allowed|forbidden|not found|error)/i.test(raw.slice(0,80))) continue;
         if(/<title[^>]*>[^<]*(40[0-9]|403|404|405|500|error|not found|forbidden|attention required|just a moment)[^<]*<\/title>/i.test(raw)) continue;
         if(lower.includes('cloudflare') && lower.includes('checking your browser')) continue;
-        if(!raw.includes('<html') && !raw.includes('<body') && !raw.includes('<head')) continue;
+        if(!raw.includes('<html') && !raw.includes('<body') && !raw.includes('<head') && !raw.includes('<meta')) continue;
         return raw;
       } catch(_) {}
     }
@@ -2617,10 +2693,10 @@ function saveEvent() {
   if(!name) { showToast('Please add an event name'); return; }
   if(!date) { showToast('Please add a date'); return; }
 
+  const recurVal = document.getElementById('ev-recur')?.value || '';
   const ev = {
     id: 'ev_'+Date.now(),
-    name,
-    date,
+    name, date,
     time: document.getElementById('ev-time').value || null,
     location: document.getElementById('ev-location').value.trim() || null,
     category: selectedCat,
@@ -2628,13 +2704,26 @@ function saveEvent() {
     url: document.getElementById('ev-url').value.trim() || null,
     image: currentEventImage || null,
     addedBy: currentUser.username,
-    completed: false,
-    completedAt: null,
-    createdAt: Date.now()
+    completed: false, completedAt: null,
+    createdAt: Date.now(),
+    recur: recurVal || null
   };
 
   const events = getEvents(currentUser.gardenId);
   events.push(ev);
+
+  // Generate recurring instances (up to 12 weeks ahead)
+  if(recurVal) {
+    const intervals = { weekly: 7, fortnightly: 14, monthly: 30 };
+    const days = intervals[recurVal] || 7;
+    const maxInstances = recurVal === 'monthly' ? 6 : 12;
+    let base = new Date(date + 'T00:00:00');
+    for(let i = 1; i <= maxInstances; i++) {
+      base.setDate(base.getDate() + (recurVal === 'monthly' ? 30 : days));
+      const recurDate = toDateStr(base);
+      events.push({ ...ev, id: 'ev_'+Date.now()+'_r'+i, date: recurDate, createdAt: Date.now()+i, recurParent: ev.id });
+    }
+  }
   saveEvents(currentUser.gardenId, events);
   lastEventHash = ''; // force refresh
   closeModal('modal-add');
@@ -3574,7 +3663,446 @@ function removeMember(username) {
   }
 }
 
-function showNotifInfo() { showToast('Reminders shown in the bell icon 🔔'); }
+// ═══════════════════════════════════════
+// SEASONS
+// ═══════════════════════════════════════
+function getCurrentSeason() {
+  const month = new Date().getMonth() + 1; // 1-12
+  // Southern hemisphere (Australia)
+  if(month >= 12 || month <= 2) return 'summer';
+  if(month >= 3 && month <= 5) return 'autumn';
+  if(month >= 6 && month <= 8) return 'winter';
+  return 'spring';
+}
+
+const SEASON_THEMES = {
+  summer: {
+    sky: 'linear-gradient(180deg, #87ceeb 0%, #b0e0e8 40%, #c8ead0 70%, #a0cc90 100%)',
+    grass: '#5a9e60', ground: 'linear-gradient(to top, #8b5e3c, #a8784f)',
+    label: '☀️ Summer', skyDeco: 'sunny'
+  },
+  autumn: {
+    sky: 'linear-gradient(180deg, #e8c89a 0%, #d4a870 30%, #c89060 60%, #a87840 100%)',
+    grass: '#8a7a4a', ground: 'linear-gradient(to top, #6b4423, #8a5c3a)',
+    label: '🍂 Autumn', skyDeco: 'cloudy'
+  },
+  winter: {
+    sky: 'linear-gradient(180deg, #b8cce8 0%, #d0dff0 40%, #e8f0f8 70%, #c8dce8 100%)',
+    grass: '#7a9aaa', ground: 'linear-gradient(to top, #6a7a8a, #8a9aaa)',
+    label: '❄️ Winter', skyDeco: 'snow'
+  },
+  spring: {
+    sky: 'linear-gradient(180deg, #dff0fa 0%, #c8e8f5 35%, #b8dff0 60%, #a8d4a2 85%, #8fbe94 100%)',
+    grass: '#5a9e60', ground: 'linear-gradient(to top, #8b5e3c, #a8784f)',
+    label: '🌸 Spring', skyDeco: 'sunny'
+  }
+};
+
+const GARDEN_THEMES = {
+  default: { name: '🌿 Classic', ...SEASON_THEMES.spring },
+  sakura: {
+    name: '🌸 Sakura',
+    sky: 'linear-gradient(180deg, #fce4ec 0%, #f8bbd0 40%, #e8a0b4 70%, #c87898 100%)',
+    grass: '#d4789a', ground: 'linear-gradient(to top, #a05070, #c87898)',
+    label: '🌸 Sakura', skyDeco: 'sakura'
+  },
+  desert: {
+    name: '🌵 Desert',
+    sky: 'linear-gradient(180deg, #f5d080 0%, #e8b840 40%, #d4a030 70%, #c88820 100%)',
+    grass: '#c8a050', ground: 'linear-gradient(to top, #a07828, #c8a050)',
+    label: '🌵 Desert', skyDeco: 'hot'
+  },
+  tropical: {
+    name: '🌴 Tropical',
+    sky: 'linear-gradient(180deg, #00bcd4 0%, #00acc1 40%, #26c6da 70%, #4dd0e1 100%)',
+    grass: '#2e7d32', ground: 'linear-gradient(to top, #4e342e, #6d4c41)',
+    label: '🌴 Tropical', skyDeco: 'sunny'
+  },
+  winter: {
+    name: '❄️ Winter',
+    ...SEASON_THEMES.winter,
+    label: '❄️ Winter', skyDeco: 'snow'
+  }
+};
+
+function applyGardenTheme() {
+  const savedTheme = DB.get('garden_theme') || 'default';
+  const season = getCurrentSeason();
+  const themeSelect = document.getElementById('garden-theme-select');
+  if(themeSelect) themeSelect.value = savedTheme;
+
+  let theme;
+  if(savedTheme === 'default') {
+    // Use season-based colours for classic theme
+    theme = { ...GARDEN_THEMES.default, ...SEASON_THEMES[season] };
+  } else {
+    theme = GARDEN_THEMES[savedTheme] || GARDEN_THEMES.default;
+  }
+
+  const canvas = document.getElementById('garden-canvas');
+  if(canvas) canvas.style.background = theme.sky;
+  const grass = document.querySelector('.garden-grass');
+  if(grass) grass.style.background = theme.grass;
+  const ground = document.querySelector('.garden-ground');
+  if(ground) ground.style.background = theme.ground;
+
+  const seasonLabel = document.getElementById('garden-season-label');
+  if(seasonLabel) seasonLabel.textContent = savedTheme === 'default' ? theme.label : GARDEN_THEMES[savedTheme].name;
+
+  // Winter snow overlay
+  const existingSnow = document.getElementById('garden-snow');
+  if(existingSnow) existingSnow.remove();
+  if(theme.skyDeco === 'snow' && canvas) {
+    const snow = document.createElementNS('http://www.w3.org/2000/svg','svg');
+    snow.id = 'garden-snow';
+    snow.setAttribute('style','position:absolute;top:0;left:0;right:0;width:100%;height:100%;pointer-events:none;');
+    snow.innerHTML = Array.from({length:20},(_,i)=>`<circle cx="${5+i*5}%" cy="${10+Math.sin(i)*15}%" r="${1+Math.random()*2}" fill="white" opacity="${0.4+Math.random()*0.4}"/>`).join('');
+    canvas.appendChild(snow);
+  }
+}
+
+function setGardenTheme(val) {
+  DB.set('garden_theme', val);
+  applyGardenTheme();
+}
+
+// ═══════════════════════════════════════
+// GARDEN NAME
+// ═══════════════════════════════════════
+function getGardenName() {
+  return DB.get('garden_name_' + currentUser.gardenId) || 'My garden';
+}
+
+function editGardenName() {
+  const current = getGardenName();
+  const name = prompt('Name your garden:', current);
+  if(name && name.trim()) {
+    DB.set('garden_name_' + currentUser.gardenId, name.trim());
+    renderGardenName();
+  }
+}
+
+function renderGardenName() {
+  const el = document.getElementById('garden-name-display');
+  if(el) el.textContent = getGardenName() + ' 🌿';
+}
+
+// ═══════════════════════════════════════
+// MILESTONES
+// ═══════════════════════════════════════
+const MILESTONES = [
+  { id:'first_bloom', icon:'🌱', name:'First Bloom', desc:'Attend your first event', check: (s) => s.attended >= 1 },
+  { id:'five_events', icon:'🌻', name:'Flourishing', desc:'Attend 5 events', check: (s) => s.attended >= 5 },
+  { id:'ten_events', icon:'🌺', name:'Full Garden', desc:'Attend 10 events', check: (s) => s.attended >= 10 },
+  { id:'twenty_five', icon:'🏆', name:'Master Gardener', desc:'Attend 25 events', check: (s) => s.attended >= 25 },
+  { id:'streak_3', icon:'🔥', name:'On a Roll', desc:'3 week streak', check: (s) => s.streak >= 3 },
+  { id:'streak_8', icon:'⚡', name:'Unstoppable', desc:'8 week streak', check: (s) => s.streak >= 8 },
+  { id:'variety', icon:'🎨', name:'Well Rounded', desc:'Attend events in 4 different categories', check: (s) => s.categories >= 4 },
+  { id:'social', icon:'👥', name:'Social Gardener', desc:'Share your garden with a friend', check: (s) => s.members >= 2 },
+  { id:'early_bird', icon:'🌅', name:'Early Bird', desc:'Attend a morning event (before 9am)', check: (s) => s.earlyBird },
+  { id:'night_owl', icon:'🌙', name:'Night Owl', desc:'Attend an evening event (after 7pm)', check: (s) => s.nightOwl },
+];
+
+function getMilestoneStats() {
+  const events = getEvents(currentUser.gardenId);
+  const users = getUsers();
+  const attended = events.filter(e => e.completed && e.addedBy === currentUser.username);
+  const cats = new Set(attended.map(e => e.category));
+  const members = Object.values(users).filter(u => u.gardenId === currentUser.gardenId && !u.pending).length;
+  return {
+    attended: attended.length,
+    streak: calcStreak(events),
+    categories: cats.size,
+    members,
+    earlyBird: attended.some(e => e.time && parseInt(e.time) < 9),
+    nightOwl: attended.some(e => e.time && parseInt(e.time) >= 19),
+  };
+}
+
+function renderMilestones() {
+  const el = document.getElementById('milestones-list');
+  if(!el) return;
+  const stats = getMilestoneStats();
+  const earned = MILESTONES.filter(m => m.check(stats));
+  const pending = MILESTONES.filter(m => !m.check(stats));
+
+  el.innerHTML = '';
+  [...earned, ...pending].forEach(m => {
+    const isEarned = m.check(stats);
+    const div = document.createElement('div');
+    div.className = 'milestone-badge' + (isEarned ? ' earned' : '');
+    div.innerHTML = `
+      <span class="milestone-icon" style="${isEarned?'':'filter:grayscale(1);opacity:0.4;'}">${m.icon}</span>
+      <div class="milestone-info">
+        <div class="milestone-name" style="${isEarned?'':'color:var(--ink-muted);'}">${m.name}</div>
+        <div class="milestone-desc">${m.desc}</div>
+      </div>
+      ${isEarned ? '<span style="color:var(--sunflower);font-size:1rem;">✓</span>' : ''}
+    `;
+    el.appendChild(div);
+  });
+}
+
+// ═══════════════════════════════════════
+// EXPLORE
+// ═══════════════════════════════════════
+let exploreLocation = null;
+let exploreFilter = 'all';
+let exploreCache = null;
+
+function setExploreFilter(el) {
+  document.querySelectorAll('.explore-filter').forEach(f => f.classList.remove('active'));
+  el.classList.add('active');
+  exploreFilter = el.dataset.cat;
+  renderExploreResults(exploreCache);
+}
+
+async function requestExploreLocation() {
+  const btn = document.getElementById('explore-location-btn');
+  if(btn) { btn.textContent = '⏳ Getting location...'; btn.disabled = true; }
+  try {
+    const pos = await new Promise((res, rej) =>
+      navigator.geolocation.getCurrentPosition(res, rej, { timeout: 8000 })
+    );
+    exploreLocation = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+    const locDisplay = document.getElementById('explore-location-display');
+    if(locDisplay) locDisplay.textContent = `📍 Near ${exploreLocation.lat.toFixed(2)}°, ${exploreLocation.lng.toFixed(2)}°`;
+    if(btn) { btn.textContent = '📍 Location set'; btn.disabled = false; }
+    await fetchExploreEvents();
+  } catch(e) {
+    if(btn) { btn.textContent = '📍 Use my location'; btn.disabled = false; }
+    showToast('Could not get location — showing popular events');
+    await fetchExploreEvents();
+  }
+}
+
+async function fetchExploreEvents() {
+  const results = document.getElementById('explore-results');
+  if(results) results.innerHTML = '<div style="text-align:center;padding:30px;color:var(--ink-muted);">🔍 Finding events near you...</div>';
+
+  // Use Ticketmaster Discovery API (free tier, 5000 req/day)
+  // Falls back to curated suggestions if no API key
+  const TICKETMASTER_KEY = 'YOUR_TICKETMASTER_KEY'; // set this for real results
+  const now = new Date();
+  const weekend = new Date(now);
+  weekend.setDate(now.getDate() + (6 - now.getDay())); // next Saturday
+  const endDate = new Date(weekend);
+  endDate.setDate(weekend.getDate() + 1); // Sunday
+
+  const startStr = now.toISOString().slice(0,19) + 'Z';
+  const endStr = endDate.toISOString().slice(0,19) + 'Z';
+
+  let events = [];
+
+  try {
+    let url = `https://app.ticketmaster.com/discovery/v2/events.json?apikey=${TICKETMASTER_KEY}&size=20&startDateTime=${startStr}&endDateTime=${endStr}&countryCode=AU&sort=date,asc`;
+    if(exploreLocation) url += `&latlong=${exploreLocation.lat},${exploreLocation.lng}&radius=50&unit=km`;
+
+    if(TICKETMASTER_KEY !== 'YOUR_TICKETMASTER_KEY') {
+      const r = await fetch(url);
+      if(r.ok) {
+        const data = await r.json();
+        const raw = data?._embedded?.events || [];
+        events = raw.map(e => ({
+          id: e.id,
+          name: e.name,
+          date: e.dates?.start?.localDate,
+          time: e.dates?.start?.localTime?.slice(0,5),
+          location: e._embedded?.venues?.[0]?.name + (e._embedded?.venues?.[0]?.city?.name ? ', ' + e._embedded?.venues?.[0]?.city?.name : ''),
+          category: guessExploreCategory(e.classifications?.[0]?.genre?.name || e.name),
+          url: e.url,
+          image: e.images?.[0]?.url,
+          source: 'Ticketmaster'
+        }));
+      }
+    }
+  } catch(_) {}
+
+  // Fallback: show curated weekend suggestions
+  if(events.length === 0) {
+    const city = exploreLocation ? 'your area' : 'Australia';
+    events = generateCuratedEvents(city, weekend);
+  }
+
+  exploreCache = events;
+  renderExploreResults(events);
+}
+
+function guessExploreCategory(genre) {
+  if(!genre) return 'other';
+  const g = genre.toLowerCase();
+  if(/rock|pop|jazz|music|concert|hip|r&b|electronic|classical/.test(g)) return 'music';
+  if(/food|wine|beer|culinary|market/.test(g)) return 'food';
+  if(/art|theatre|film|comedy|dance|exhibition/.test(g)) return 'art';
+  if(/sport|fitness|run|yoga|swim/.test(g)) return 'sports';
+  if(/community|festival|fair|market/.test(g)) return 'community';
+  return 'other';
+}
+
+function generateCuratedEvents(city, weekend) {
+  const dateStr = toDateStr(weekend);
+  return [
+    { id:'c1', name:'Sunday Farmers Market', date:dateStr, time:'08:00', location:'Local Park, '+city, category:'food', url:null, image:null, source:'Suggested' },
+    { id:'c2', name:'Live Jazz in the Garden', date:dateStr, time:'14:00', location:'Botanic Gardens, '+city, category:'music', url:null, image:null, source:'Suggested' },
+    { id:'c3', name:'Community Art Walk', date:toDateStr(new Date(weekend.getTime()-86400000)), time:'10:00', location:'City Centre, '+city, category:'art', url:null, image:null, source:'Suggested' },
+    { id:'c4', name:'Outdoor Yoga Session', date:dateStr, time:'07:30', location:'Riverbank, '+city, category:'sports', url:null, image:null, source:'Suggested' },
+    { id:'c5', name:'Night Food Market', date:dateStr, time:'17:00', location:'Waterfront, '+city, category:'food', url:null, image:null, source:'Suggested' },
+    { id:'c6', name:'Local Band Night', date:toDateStr(new Date(weekend.getTime()-86400000)), time:'20:00', location:'The Venue, '+city, category:'music', url:null, image:null, source:'Suggested' },
+  ];
+}
+
+function renderExploreResults(events) {
+  const results = document.getElementById('explore-results');
+  if(!results || !events) return;
+  const filtered = exploreFilter === 'all' ? events : events.filter(e => e.category === exploreFilter);
+  if(filtered.length === 0) {
+    results.innerHTML = '<div style="text-align:center;padding:30px;color:var(--ink-muted);font-size:0.9rem;">No events found for this filter</div>';
+    return;
+  }
+  const catColors = {community:'#f5c842',music:'#c084d8',food:'#f0823c',art:'#e8729a',sports:'#e84040',other:'#40a8e8'};
+  const catEmoji = {community:'🌿',music:'🎵',food:'🍜',art:'🎨',sports:'⚡',other:'✨'};
+  results.innerHTML = filtered.map(ev => `
+    <div class="explore-card" onclick="addExploreEvent(${JSON.stringify(ev).replace(/"/g,'&quot;')})">
+      ${ev.image ? `<img src="${ev.image}" class="explore-img" alt="${esc(ev.name)}" onerror="this.style.display='none'">` : ''}
+      <div style="display:flex;gap:8px;align-items:flex-start;">
+        <span style="font-size:1.1rem;flex-shrink:0;">${catEmoji[ev.category]||'✨'}</span>
+        <div style="flex:1;min-width:0;">
+          <div style="font-weight:600;font-size:0.9rem;color:var(--ink);margin-bottom:3px;">${esc(ev.name)}</div>
+          <div style="font-size:0.78rem;color:var(--ink-muted);">${ev.date?fmtDateFull(ev.date):''}${ev.time?' · '+fmtTime(ev.time):''}</div>
+          ${ev.location?`<div style="font-size:0.78rem;color:var(--ink-muted);">📍 ${esc(ev.location)}</div>`:''}
+        </div>
+        <div style="flex-shrink:0;background:${catColors[ev.category]||'#40a8e8'}22;color:${catColors[ev.category]||'#40a8e8'};font-size:0.7rem;font-weight:600;padding:3px 8px;border-radius:10px;">${ev.source||''}</div>
+      </div>
+      <button style="width:100%;margin-top:10px;padding:8px;background:var(--moss);color:#fff;border:none;border-radius:var(--r-sm);font-size:0.82rem;font-weight:600;cursor:pointer;">+ Add to my calendar</button>
+    </div>
+  `).join('');
+}
+
+function addExploreEvent(ev) {
+  // Pre-fill the add event modal with explore event data
+  openAddModal();
+  setTimeout(() => {
+    if(ev.name) document.getElementById('ev-name').value = ev.name;
+    if(ev.date) document.getElementById('ev-date').value = ev.date;
+    if(ev.time) document.getElementById('ev-time').value = ev.time;
+    if(ev.location) document.getElementById('ev-location').value = ev.location;
+    if(ev.url) document.getElementById('ev-url').value = ev.url;
+    if(ev.category) {
+      selectedCat = ev.category;
+      document.querySelectorAll('.cat-item').forEach(c => c.classList.toggle('selected', c.dataset.cat===ev.category));
+    }
+    showToast('Event details filled in — review and save 🌱');
+  }, 300);
+}
+
+async function renderExplore() {
+  // If we've already fetched, just re-render filtered results
+  if(exploreCache) { renderExploreResults(exploreCache); return; }
+  // Otherwise show prompt to get location
+}
+
+// ═══════════════════════════════════════
+// POST-SIGNUP ONBOARDING
+// ═══════════════════════════════════════
+function showPostSignupOnboarding() {
+  const overlay = document.createElement('div');
+  overlay.id = 'onboarding-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(28,28,26,0.7);z-index:700;display:flex;align-items:flex-end;';
+
+  const steps = [
+    { icon:'➕', title:'Add your first event', body:'Tap the + button to add an event. Paste a URL to auto-fill the details, or enter manually.', action:'Got it →', tab:'week' },
+    { icon:'✓', title:'Mark as attended', body:'After going to an event, tap it and mark as attended. A flower grows in your garden!', action:'Cool →', tab:'garden' },
+    { icon:'🌿', title:'Invite a friend', body:'Go to Profile to find your garden code. Share it with a friend to grow your garden together.', action:"Let's go!", tab:'profile' },
+  ];
+
+  let step = 0;
+  const render = () => {
+    const s = steps[step];
+    overlay.innerHTML = `
+      <div style="background:var(--cream);border-radius:24px 24px 0 0;padding:28px 24px max(40px,calc(env(safe-area-inset-bottom)+24px));width:100%;">
+        <div style="text-align:center;margin-bottom:16px;">
+          <div style="font-size:2.5rem;margin-bottom:8px;">${s.icon}</div>
+          <div style="font-family:var(--font-display);font-size:1.3rem;color:var(--moss);margin-bottom:8px;">${s.title}</div>
+          <div style="font-size:0.9rem;color:var(--ink-light);line-height:1.6;">${s.body}</div>
+        </div>
+        <div style="display:flex;gap:6px;justify-content:center;margin-bottom:20px;">
+          ${steps.map((_,i)=>`<div style="width:8px;height:8px;border-radius:50%;background:${i===step?'var(--moss)':'var(--border)'};transition:background 0.2s;"></div>`).join('')}
+        </div>
+        <button class="btn btn-primary btn-full" onclick="nextOnboardStep()">
+          ${s.action}
+        </button>
+        <button class="btn btn-ghost btn-full" style="margin-top:8px;" onclick="document.getElementById('onboarding-overlay').remove()">Skip</button>
+      </div>`;
+  };
+
+  window.nextOnboardStep = () => {
+    const tab = steps[step].tab;
+    step++;
+    if(step >= steps.length) {
+      overlay.remove();
+      const navBtn = document.querySelector(`[data-tab="${tab}"]`);
+      if(navBtn) switchTab(tab, navBtn);
+    } else {
+      render();
+    }
+  };
+
+  document.body.appendChild(overlay);
+  render();
+}
+
+// ═══════════════════════════════════════
+// REAL-TIME WEBSOCKET SYNC
+// ═══════════════════════════════════════
+let wsConnection = null;
+let wsReconnectTimer = null;
+
+function connectWebSocket() {
+  if(!currentUser) return;
+  const wsBase = API_URL.replace('https://', 'wss://').replace('http://', 'ws://');
+  if(!wsBase || wsBase.includes('srcdoc')) return;
+
+  try {
+    wsConnection = new WebSocket(`${wsBase}/ws?garden=${currentUser.gardenId}&user=${currentUser.username}`);
+
+    wsConnection.onopen = () => {
+      console.log('WS connected');
+      clearTimeout(wsReconnectTimer);
+    };
+
+    wsConnection.onmessage = (e) => {
+      try {
+        const msg = JSON.parse(e.data);
+        if(msg.type === 'events_updated' && msg.gardenId === currentUser.gardenId) {
+          if(msg.events) { DB.set('events_'+currentUser.gardenId, msg.events); refreshCurrentTab(); }
+        }
+        if(msg.type === 'users_updated' && msg.gardenId === currentUser.gardenId) {
+          pullGardenUsers(currentUser.gardenId).then(() => renderPeople());
+        }
+        if(msg.type === 'join_request') {
+          showToast(`${msg.name} wants to join your garden 🌿`);
+          pullGardenUsers(currentUser.gardenId).then(() => {
+            if(document.querySelector('#tab-profile.active')) renderPeople();
+          });
+        }
+      } catch(_) {}
+    };
+
+    wsConnection.onclose = () => {
+      wsConnection = null;
+      // Reconnect after 5s
+      wsReconnectTimer = setTimeout(connectWebSocket, 5000);
+    };
+
+    wsConnection.onerror = () => { wsConnection?.close(); };
+  } catch(_) {}
+}
+
+function wsBroadcast(type, data) {
+  if(wsConnection?.readyState === WebSocket.OPEN) {
+    wsConnection.send(JSON.stringify({ type, gardenId: currentUser.gardenId, ...data }));
+  }
+}
 function showAbout() { showToast('Roam. v1.0 — grow your shared garden 🌿'); }
 
 // ── Cross-device approval via URL ─────────────────────────────
