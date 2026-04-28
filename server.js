@@ -1,4 +1,6 @@
 const express = require('express');
+const http = require('http');
+const { WebSocketServer } = require('ws');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -199,9 +201,6 @@ app.get('/api/health', (req, res) => {
 });
 
 // ── WebSocket real-time sync ───────────────────────────────────
-const http = require('http');
-const { WebSocketServer } = require('ws');
-
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server, path: '/ws' });
 
