@@ -1150,20 +1150,34 @@ function getEvents(gardenId) { return DB.get('events_'+gardenId) || [] }
 
 function saveEvents(gardenId, evs) {
   DB.set('events_'+gardenId, evs);
-  // Push to server in background
-  apiFetch('/api/garden/' + gardenId + '/events', {
-    method: 'PUT',
-    body: JSON.stringify(evs)
-  });
+  // Only push to server if we have actual events, or if explicitly clearing
+  // Don't push empty array on startup before events load
+  if(evs.length > 0 || DB.get('events_push_allowed_'+gardenId)) {
+    DB.set('events_push_allowed_'+gardenId, true);
+    apiFetch('/api/garden/' + gardenId + '/events', {
+      method: 'PUT',
+      body: JSON.stringify(evs)
+    });
+  }
 }
 
 async function pullEvents(gardenId) {
   const evs = await apiFetch('/api/garden/' + gardenId + '/events');
-  if(evs && Array.isArray(evs)) {
-    DB.set('events_'+gardenId, evs);
-    return evs;
+  // null = server has no record yet (cold start) — keep localStorage
+  if(evs === null || evs === undefined) return getEvents(gardenId);
+  // Empty array from server is suspicious if we have local data — keep local
+  const local = getEvents(gardenId);
+  if(evs.length === 0 && local.length > 0) {
+    console.log('Server returned empty, keeping local events:', local.length);
+    // Push local back to server to restore it
+    apiFetch('/api/garden/' + gardenId + '/events', {
+      method: 'PUT', body: JSON.stringify(local)
+    });
+    return local;
   }
-  return getEvents(gardenId);
+  // Server has more recent/complete data — use it
+  if(evs.length >= 0) DB.set('events_'+gardenId, evs);
+  return evs;
 }
 
 let currentUser = null;
