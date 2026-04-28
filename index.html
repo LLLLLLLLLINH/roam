@@ -3986,44 +3986,39 @@ function getExploreTimeRange() {
 
 async function fetchExploreEvents() {
   const results = document.getElementById('explore-results');
-  if(results) results.innerHTML = '<div style="text-align:center;padding:30px;color:var(--ink-muted);"><div style="font-size:1.5rem;margin-bottom:8px;">🔍</div><div style="font-size:0.9rem;">Searching Resident Advisor, Eventbrite, Google Events & more...</div></div>';
+  if(results) results.innerHTML = '<div style="text-align:center;padding:30px;color:var(--ink-muted);"><div style="font-size:1.5rem;margin-bottom:8px;">🔍</div><div style="font-size:0.9rem;">Searching Resident Advisor, Meetup, Eventbrite & more...</div></div>';
 
   const { startISO, endISO, start } = getExploreTimeRange();
   let events = [];
+  let sources = [];
 
   if(exploreLocation) {
     try {
       const params = new URLSearchParams({
-        lat: exploreLocation.lat,
-        lng: exploreLocation.lng,
+        lat: exploreLocation.lat, lng: exploreLocation.lng,
         label: exploreLocation.label || '',
-        start: startISO.slice(0,10),
-        end: endISO.slice(0,10),
-        when: exploreWhen
+        start: startISO.slice(0,10), end: endISO.slice(0,10), when: exploreWhen
       });
       const data = await apiFetch('/api/explore-events?' + params.toString());
       if(data?.events?.length > 0) {
         events = data.events;
-        // Show which sources returned results
-        if(data.sources?.length > 0 && results) {
-          const srcBadges = data.sources.map(s => `<span style="background:#f0f8f0;color:var(--moss);font-size:0.7rem;padding:2px 8px;border-radius:10px;font-weight:500;">${s}</span>`).join(' ');
-          const srcBar = document.createElement('div');
-          srcBar.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;align-items:center;';
-          srcBar.innerHTML = `<span style="font-size:0.75rem;color:var(--ink-muted);">Sources:</span> ${srcBadges}`;
-          results.innerHTML = '';
-          results.appendChild(srcBar);
-        }
+        sources = data.sources || [];
       }
-    } catch(e) {
-      console.log('Explore fetch error:', e);
-    }
+    } catch(e) { console.log('Explore error:', e); }
   }
 
-  // Fallback to curated if no real events found
+  // Show source badges if we got real results
+  const resultsEl = document.getElementById('explore-results');
+  if(events.length > 0 && sources.length > 0 && resultsEl) {
+    const srcBadges = sources.map(s => `<span style="background:#f0f8f0;color:var(--moss);font-size:0.7rem;padding:2px 8px;border-radius:10px;font-weight:500;">${s}</span>`).join(' ');
+    resultsEl.innerHTML = `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;align-items:center;"><span style="font-size:0.75rem;color:var(--ink-muted);">Live from:</span>${srcBadges}</div>`;
+  }
+
+  // Fallback if nothing returned
   if(events.length === 0) {
     const baseDate = new Date(start + 'T00:00:00');
     events = generateCuratedEvents(exploreLocation?.label || 'your area', baseDate);
-    if(results) results.innerHTML = '<div style="font-size:0.78rem;color:var(--ink-muted);margin-bottom:12px;padding:8px 10px;background:var(--cream-dark);border-radius:8px;">📍 Showing suggested events — enter your location above for real local events</div>';
+    if(resultsEl) resultsEl.innerHTML = '<div style="font-size:0.8rem;color:var(--ink-muted);margin-bottom:12px;padding:10px 12px;background:var(--cream-dark);border-radius:8px;line-height:1.5;">💡 Showing suggested events. To see real local events, add a <strong>SERPAPI_KEY</strong> to your Render environment variables — free at <a href="https://serpapi.com" target="_blank" style="color:var(--moss);">serpapi.com</a> (100 searches/month).</div>';
   }
 
   exploreCache = events;
