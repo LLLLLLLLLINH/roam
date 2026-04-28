@@ -837,12 +837,27 @@ html { font-size: 14px; }
   </div>
 
   <div class="tab-content" id="tab-explore">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
-      <div style="font-family:var(--font-display);font-size:1.5rem;">Explore 🗺️</div>
-      <button id="explore-location-btn" onclick="requestExploreLocation()" class="btn btn-sm btn-secondary" style="font-size:0.78rem;">📍 Use my location</button>
+    <div style="font-family:var(--font-display);font-size:1.5rem;margin-bottom:14px;">Explore 🗺️</div>
+
+    <!-- Location bar -->
+    <div style="background:#fff;border:1.5px solid var(--border);border-radius:var(--r);padding:14px;margin-bottom:14px;">
+      <div style="font-size:0.75rem;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:var(--ink-muted);margin-bottom:8px;">Your location</div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <input id="explore-postcode" class="form-input" placeholder="Enter suburb or postcode" maxlength="20" style="flex:1;font-size:0.9rem;" oninput="onPostcodeInput(this.value)" onkeydown="if(event.key==='Enter')searchByPostcode()">
+        <button onclick="searchByPostcode()" class="btn btn-primary" style="flex-shrink:0;padding:0 14px;font-size:0.85rem;">Search</button>
+        <button onclick="requestExploreLocation()" class="btn btn-secondary" style="flex-shrink:0;padding:0 10px;font-size:0.85rem;" title="Auto-detect location">📍</button>
+      </div>
+      <div id="explore-location-display" style="font-size:0.78rem;color:var(--moss);margin-top:8px;display:none;"></div>
     </div>
-    <div id="explore-location-display" style="font-size:0.8rem;color:var(--ink-muted);margin-bottom:12px;"></div>
-    <!-- Interest filters -->
+
+    <!-- When -->
+    <div style="display:flex;gap:6px;margin-bottom:12px;">
+      <button class="explore-filter active" data-when="weekend" onclick="setExploreWhen(this,'weekend')">This weekend</button>
+      <button class="explore-filter" data-when="week" onclick="setExploreWhen(this,'week')">This week</button>
+      <button class="explore-filter" data-when="month" onclick="setExploreWhen(this,'month')">This month</button>
+    </div>
+
+    <!-- Category filters -->
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px;" id="explore-filters">
       <button class="explore-filter active" data-cat="all" onclick="setExploreFilter(this)">All</button>
       <button class="explore-filter" data-cat="music" onclick="setExploreFilter(this)">🎵 Music</button>
@@ -851,10 +866,12 @@ html { font-size: 14px; }
       <button class="explore-filter" data-cat="sports" onclick="setExploreFilter(this)">⚡ Active</button>
       <button class="explore-filter" data-cat="community" onclick="setExploreFilter(this)">🌿 Community</button>
     </div>
+
     <div id="explore-results">
       <div style="text-align:center;padding:40px 20px;color:var(--ink-muted);">
-        <div style="font-size:2rem;margin-bottom:12px;">🗺️</div>
-        <div style="font-size:0.9rem;">Tap "Use my location" to discover events happening near you this weekend</div>
+        <div style="font-size:2.5rem;margin-bottom:12px;">🗺️</div>
+        <div style="font-size:0.9rem;font-weight:500;margin-bottom:6px;">Find events near you</div>
+        <div style="font-size:0.82rem;">Enter your suburb or postcode above, or tap 📍 to auto-detect</div>
       </div>
     </div>
   </div>
@@ -1153,6 +1170,8 @@ async function pullGardenUsers(gardenId) {
   const prevMembers = Object.values(local).filter(u => u.gardenId === gardenId && !u.pending).map(u => u.username).sort().join(',');
 
   for(const u of serverUsers) {
+    // Never overwrite the current user's own record from server — their local copy is authoritative
+    if(u.username === currentUser?.username) continue;
     const existing = local[u.username];
     local[u.username] = { ...u, password: existing?.password || '' };
   }
@@ -3824,106 +3843,179 @@ function renderMilestones() {
   if(!el) return;
   const stats = getMilestoneStats();
   const earned = MILESTONES.filter(m => m.check(stats));
-  const pending = MILESTONES.filter(m => !m.check(stats));
+  const locked = MILESTONES.filter(m => !m.check(stats));
+  const showAll = el.dataset.showAll === 'true';
 
   el.innerHTML = '';
-  [...earned, ...pending].forEach(m => {
-    const isEarned = m.check(stats);
-    const div = document.createElement('div');
-    div.className = 'milestone-badge' + (isEarned ? ' earned' : '');
-    div.innerHTML = `
-      <span class="milestone-icon" style="${isEarned?'':'filter:grayscale(1);opacity:0.4;'}">${m.icon}</span>
-      <div class="milestone-info">
-        <div class="milestone-name" style="${isEarned?'':'color:var(--ink-muted);'}">${m.name}</div>
-        <div class="milestone-desc">${m.desc}</div>
-      </div>
-      ${isEarned ? '<span style="color:var(--sunflower);font-size:1rem;">✓</span>' : ''}
-    `;
-    el.appendChild(div);
-  });
+
+  if(earned.length === 0) {
+    const empty = document.createElement('div');
+    empty.style.cssText = 'font-size:0.85rem;color:var(--ink-muted);padding:8px 0;';
+    empty.textContent = 'Attend your first event to earn a milestone 🌱';
+    el.appendChild(empty);
+  } else {
+    earned.forEach(m => {
+      const div = document.createElement('div');
+      div.className = 'milestone-badge earned';
+      div.innerHTML = `<span class="milestone-icon">${m.icon}</span><div class="milestone-info"><div class="milestone-name">${m.name}</div><div class="milestone-desc">${m.desc}</div></div><span style="color:var(--sunflower);font-size:1rem;">✓</span>`;
+      el.appendChild(div);
+    });
+  }
+
+  if(showAll && locked.length > 0) {
+    const sep = document.createElement('div');
+    sep.style.cssText = 'font-size:0.72rem;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:var(--ink-muted);margin:10px 0 6px;';
+    sep.textContent = 'Locked';
+    el.appendChild(sep);
+    locked.forEach(m => {
+      const div = document.createElement('div');
+      div.className = 'milestone-badge';
+      div.innerHTML = `<span class="milestone-icon" style="filter:grayscale(1);opacity:0.4;">${m.icon}</span><div class="milestone-info"><div class="milestone-name" style="color:var(--ink-muted);">${m.name}</div><div class="milestone-desc">${m.desc}</div></div>`;
+      el.appendChild(div);
+    });
+  }
+
+  if(locked.length > 0) {
+    const btn = document.createElement('button');
+    btn.className = 'btn btn-ghost btn-full';
+    btn.style.cssText = 'margin-top:8px;font-size:0.82rem;';
+    btn.textContent = showAll ? '▲ Show less' : `▼ Show all ${MILESTONES.length} milestones (${locked.length} locked)`;
+    btn.onclick = () => { el.dataset.showAll = showAll ? 'false' : 'true'; renderMilestones(); };
+    el.appendChild(btn);
+  }
 }
 
 // ═══════════════════════════════════════
 // EXPLORE
 // ═══════════════════════════════════════
-let exploreLocation = null;
+let exploreLocation = DB.get('explore_location') || null;
 let exploreFilter = 'all';
+let exploreWhen = 'weekend';
 let exploreCache = null;
+let postcodeDebounce = null;
+
+function onPostcodeInput(val) {
+  clearTimeout(postcodeDebounce);
+  if(val.trim().length >= 3) postcodeDebounce = setTimeout(searchByPostcode, 1200);
+}
+
+async function searchByPostcode() {
+  const input = document.getElementById('explore-postcode');
+  const val = (input?.value || '').trim();
+  if(!val) return;
+  const locDisplay = document.getElementById('explore-location-display');
+  if(locDisplay) { locDisplay.textContent = '⏳ Looking up location...'; locDisplay.style.display = 'block'; }
+  try {
+    const query = /^\d{4}$/.test(val) ? val + ', Australia' : val + ', Australia';
+    const r = await fetch('https://nominatim.openstreetmap.org/search?q=' + encodeURIComponent(query) + '&format=json&limit=1&countrycodes=au', {
+      headers: { 'Accept-Language': 'en', 'User-Agent': 'Roam-App/1.0' }
+    });
+    const data = await r.json();
+    if(data && data[0]) {
+      const place = data[0];
+      exploreLocation = { lat: parseFloat(place.lat), lng: parseFloat(place.lon), label: place.display_name.split(',').slice(0,2).join(', ') };
+      DB.set('explore_location', exploreLocation);
+      if(locDisplay) { locDisplay.textContent = '📍 ' + exploreLocation.label; locDisplay.style.display = 'block'; }
+      exploreCache = null;
+      await fetchExploreEvents();
+    } else {
+      if(locDisplay) { locDisplay.textContent = '⚠️ Location not found — try a suburb name or 4-digit postcode'; locDisplay.style.display = 'block'; }
+    }
+  } catch(e) {
+    if(locDisplay) { locDisplay.textContent = '⚠️ Could not look up location'; locDisplay.style.display = 'block'; }
+  }
+}
 
 function setExploreFilter(el) {
-  document.querySelectorAll('.explore-filter').forEach(f => f.classList.remove('active'));
+  document.querySelectorAll('#explore-filters .explore-filter').forEach(f => f.classList.remove('active'));
   el.classList.add('active');
   exploreFilter = el.dataset.cat;
   renderExploreResults(exploreCache);
 }
 
+function setExploreWhen(el, when) {
+  document.querySelectorAll('[data-when]').forEach(f => f.classList.remove('active'));
+  el.classList.add('active');
+  exploreWhen = when;
+  exploreCache = null;
+  if(exploreLocation) fetchExploreEvents();
+}
+
 async function requestExploreLocation() {
-  const btn = document.getElementById('explore-location-btn');
-  if(btn) { btn.textContent = '⏳ Getting location...'; btn.disabled = true; }
+  const locDisplay = document.getElementById('explore-location-display');
+  if(locDisplay) { locDisplay.textContent = '⏳ Detecting location...'; locDisplay.style.display = 'block'; }
   try {
-    const pos = await new Promise((res, rej) =>
-      navigator.geolocation.getCurrentPosition(res, rej, { timeout: 8000 })
-    );
-    exploreLocation = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-    const locDisplay = document.getElementById('explore-location-display');
-    if(locDisplay) locDisplay.textContent = `📍 Near ${exploreLocation.lat.toFixed(2)}°, ${exploreLocation.lng.toFixed(2)}°`;
-    if(btn) { btn.textContent = '📍 Location set'; btn.disabled = false; }
+    const pos = await new Promise((res, rej) => navigator.geolocation.getCurrentPosition(res, rej, { timeout: 8000 }));
+    exploreLocation = { lat: pos.coords.latitude, lng: pos.coords.longitude, label: null };
+    try {
+      const r = await fetch('https://nominatim.openstreetmap.org/reverse?lat=' + exploreLocation.lat + '&lon=' + exploreLocation.lng + '&format=json', { headers: { 'Accept-Language': 'en', 'User-Agent': 'Roam-App/1.0' } });
+      const data = await r.json();
+      const suburb = data.address?.suburb || data.address?.city || data.address?.town || '';
+      const postcode = data.address?.postcode || '';
+      exploreLocation.label = [suburb, postcode].filter(Boolean).join(' ');
+      const postcodeEl = document.getElementById('explore-postcode');
+      if(postcodeEl) postcodeEl.value = exploreLocation.label;
+    } catch(_) {}
+    DB.set('explore_location', exploreLocation);
+    const label = exploreLocation.label || exploreLocation.lat.toFixed(3) + ', ' + exploreLocation.lng.toFixed(3);
+    if(locDisplay) { locDisplay.textContent = '📍 ' + label; locDisplay.style.display = 'block'; }
+    exploreCache = null;
     await fetchExploreEvents();
   } catch(e) {
-    if(btn) { btn.textContent = '📍 Use my location'; btn.disabled = false; }
-    showToast('Could not get location — showing popular events');
-    await fetchExploreEvents();
+    if(locDisplay) { locDisplay.textContent = '⚠️ Location access denied — enter postcode manually'; locDisplay.style.display = 'block'; }
   }
+}
+
+function getExploreTimeRange() {
+  const now = new Date();
+  let start = new Date(now), end = new Date(now);
+  if(exploreWhen === 'weekend') {
+    const day = now.getDay();
+    const daysToSat = day === 6 ? 0 : (6 - day);
+    start.setDate(now.getDate() + (daysToSat === 0 && now.getHours() > 20 ? 7 : daysToSat));
+    end = new Date(start); end.setDate(start.getDate() + 1);
+  } else if(exploreWhen === 'week') {
+    end.setDate(now.getDate() + 7);
+  } else {
+    end.setDate(now.getDate() + 30);
+  }
+  const pad = n => String(n).padStart(2,'0');
+  const toISO = d => d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+'T00:00:00Z';
+  return { start: start.getFullYear()+'-'+pad(start.getMonth()+1)+'-'+pad(start.getDate()), startISO: toISO(start), endISO: toISO(end) };
 }
 
 async function fetchExploreEvents() {
   const results = document.getElementById('explore-results');
-  if(results) results.innerHTML = '<div style="text-align:center;padding:30px;color:var(--ink-muted);">🔍 Finding events near you...</div>';
-
-  // Use Ticketmaster Discovery API (free tier, 5000 req/day)
-  // Falls back to curated suggestions if no API key
-  const TICKETMASTER_KEY = 'YOUR_TICKETMASTER_KEY'; // set this for real results
-  const now = new Date();
-  const weekend = new Date(now);
-  weekend.setDate(now.getDate() + (6 - now.getDay())); // next Saturday
-  const endDate = new Date(weekend);
-  endDate.setDate(weekend.getDate() + 1); // Sunday
-
-  const startStr = now.toISOString().slice(0,19) + 'Z';
-  const endStr = endDate.toISOString().slice(0,19) + 'Z';
-
+  if(results) results.innerHTML = '<div style="text-align:center;padding:30px;color:var(--ink-muted);"><div style="font-size:1.5rem;margin-bottom:8px;">🔍</div>Finding events near you...</div>';
+  const TICKETMASTER_KEY = 'YOUR_TICKETMASTER_KEY';
+  const { startISO, endISO, start } = getExploreTimeRange();
   let events = [];
-
-  try {
-    let url = `https://app.ticketmaster.com/discovery/v2/events.json?apikey=${TICKETMASTER_KEY}&size=20&startDateTime=${startStr}&endDateTime=${endStr}&countryCode=AU&sort=date,asc`;
-    if(exploreLocation) url += `&latlong=${exploreLocation.lat},${exploreLocation.lng}&radius=50&unit=km`;
-
-    if(TICKETMASTER_KEY !== 'YOUR_TICKETMASTER_KEY') {
+  if(TICKETMASTER_KEY !== 'YOUR_TICKETMASTER_KEY' && exploreLocation) {
+    try {
+      const url = 'https://app.ticketmaster.com/discovery/v2/events.json?apikey=' + TICKETMASTER_KEY + '&size=20&startDateTime=' + startISO + '&endDateTime=' + endISO + '&countryCode=AU&latlong=' + exploreLocation.lat + ',' + exploreLocation.lng + '&radius=30&unit=km&sort=date,asc';
       const r = await fetch(url);
       if(r.ok) {
         const data = await r.json();
-        const raw = data?._embedded?.events || [];
-        events = raw.map(e => ({
-          id: e.id,
-          name: e.name,
+        events = (data?._embedded?.events || []).map(e => ({
+          id: e.id, name: e.name,
           date: e.dates?.start?.localDate,
           time: e.dates?.start?.localTime?.slice(0,5),
-          location: e._embedded?.venues?.[0]?.name + (e._embedded?.venues?.[0]?.city?.name ? ', ' + e._embedded?.venues?.[0]?.city?.name : ''),
+          location: [e._embedded?.venues?.[0]?.name, e._embedded?.venues?.[0]?.address?.line1, e._embedded?.venues?.[0]?.city?.name].filter(Boolean).join(', '),
           category: guessExploreCategory(e.classifications?.[0]?.genre?.name || e.name),
           url: e.url,
-          image: e.images?.[0]?.url,
+          image: e.images?.find(i => i.ratio === '16_9' && i.width > 500)?.url || e.images?.[0]?.url,
+          description: e.info || e.pleaseNote || '',
+          priceRange: e.priceRanges ? '$' + e.priceRanges[0].min + '–$' + e.priceRanges[0].max : null,
           source: 'Ticketmaster'
         }));
       }
-    }
-  } catch(_) {}
-
-  // Fallback: show curated weekend suggestions
-  if(events.length === 0) {
-    const city = exploreLocation ? 'your area' : 'Australia';
-    events = generateCuratedEvents(city, weekend);
+    } catch(_) {}
   }
-
+  if(events.length === 0) {
+    const pad = n => String(n).padStart(2,'0');
+    const baseDate = new Date(start + 'T00:00:00');
+    events = generateCuratedEvents(exploreLocation?.label || 'your area', baseDate);
+  }
   exploreCache = events;
   renderExploreResults(events);
 }
@@ -3931,55 +4023,115 @@ async function fetchExploreEvents() {
 function guessExploreCategory(genre) {
   if(!genre) return 'other';
   const g = genre.toLowerCase();
-  if(/rock|pop|jazz|music|concert|hip|r&b|electronic|classical/.test(g)) return 'music';
-  if(/food|wine|beer|culinary|market/.test(g)) return 'food';
-  if(/art|theatre|film|comedy|dance|exhibition/.test(g)) return 'art';
-  if(/sport|fitness|run|yoga|swim/.test(g)) return 'sports';
-  if(/community|festival|fair|market/.test(g)) return 'community';
+  if(/rock|pop|jazz|music|concert|hip|r&b|electronic|classical|festival.*music/.test(g)) return 'music';
+  if(/food|wine|beer|culinary|market|dining/.test(g)) return 'food';
+  if(/art|theatre|film|comedy|dance|exhibition|gallery/.test(g)) return 'art';
+  if(/sport|fitness|run|yoga|swim|marathon|cycling/.test(g)) return 'sports';
+  if(/community|festival|fair|market|street/.test(g)) return 'community';
   return 'other';
 }
 
-function generateCuratedEvents(city, weekend) {
-  const dateStr = toDateStr(weekend);
+function generateCuratedEvents(location, baseDate) {
+  const pad = n => String(n).padStart(2,'0');
+  const toStr = d => d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+  // Find next Saturday
+  const sat = new Date(baseDate);
+  const dayOfWeek = sat.getDay();
+  const daysToSat = dayOfWeek === 6 ? 0 : (6 - dayOfWeek + 7) % 7 || 7;
+  sat.setDate(sat.getDate() + daysToSat);
+  const sun = new Date(sat); sun.setDate(sat.getDate() + 1);
+  const satStr = toStr(sat), sunStr = toStr(sun);
   return [
-    { id:'c1', name:'Sunday Farmers Market', date:dateStr, time:'08:00', location:'Local Park, '+city, category:'food', url:null, image:null, source:'Suggested' },
-    { id:'c2', name:'Live Jazz in the Garden', date:dateStr, time:'14:00', location:'Botanic Gardens, '+city, category:'music', url:null, image:null, source:'Suggested' },
-    { id:'c3', name:'Community Art Walk', date:toDateStr(new Date(weekend.getTime()-86400000)), time:'10:00', location:'City Centre, '+city, category:'art', url:null, image:null, source:'Suggested' },
-    { id:'c4', name:'Outdoor Yoga Session', date:dateStr, time:'07:30', location:'Riverbank, '+city, category:'sports', url:null, image:null, source:'Suggested' },
-    { id:'c5', name:'Night Food Market', date:dateStr, time:'17:00', location:'Waterfront, '+city, category:'food', url:null, image:null, source:'Suggested' },
-    { id:'c6', name:'Local Band Night', date:toDateStr(new Date(weekend.getTime()-86400000)), time:'20:00', location:'The Venue, '+city, category:'music', url:null, image:null, source:'Suggested' },
+    { id:'c1', name:'Sunday Farmers Market', date:sunStr, time:'08:00', location:'Local Park, '+location, category:'food', url:null, image:null, description:'Fresh local produce, artisan goods, food trucks and family fun every Sunday morning. Dog friendly!', priceRange:'Free entry', source:'Suggested' },
+    { id:'c2', name:'Live Jazz in the Garden', date:sunStr, time:'14:00', location:'Botanic Gardens, '+location, category:'music', url:null, image:null, description:'Enjoy an afternoon of live jazz performed by local musicians in a stunning outdoor setting. BYO picnic blanket and drinks.', priceRange:'Free', source:'Suggested' },
+    { id:'c3', name:'Community Art Walk', date:satStr, time:'10:00', location:'City Centre, '+location, category:'art', url:null, image:null, description:'Self-guided walking tour through local galleries, street art, and pop-up exhibitions. Maps available from the visitor centre.', priceRange:'Free', source:'Suggested' },
+    { id:'c4', name:'Outdoor Yoga & Mindfulness', date:satStr, time:'07:30', location:'Riverbank Reserve, '+location, category:'sports', url:null, image:null, description:'Start your weekend with an energising outdoor yoga session suitable for all levels. Bring your own mat. Instructor-led, 60 minutes.', priceRange:'$10–$15', source:'Suggested' },
+    { id:'c5', name:'Night Food Market', date:satStr, time:'17:00', location:'Waterfront, '+location, category:'food', url:null, image:null, description:'Over 40 food stalls featuring cuisines from around the world, live entertainment, craft beer garden, and a lively atmosphere by the water.', priceRange:'Free entry', source:'Suggested' },
+    { id:'c6', name:'Local Band Night', date:satStr, time:'20:00', location:'The Venue, '+location, category:'music', url:null, image:null, description:'Three local acts playing across two stages. All original music, great vibe, affordable drinks. 18+ event, ID required at door.', priceRange:'$15–$25', source:'Suggested' },
+    { id:'c7', name:'Open Air Cinema', date:satStr, time:'19:30', location:'Parklands, '+location, category:'art', url:null, image:null, description:'Bring a blanket and enjoy a classic film under the stars. Food and drinks available on site. Gates open 30 minutes before screening.', priceRange:'$18–$22', source:'Suggested' },
+    { id:'c8', name:'Neighbourhood Swap Meet', date:sunStr, time:'09:00', location:'Community Hall, '+location, category:'community', url:null, image:null, description:'Trade, sell or donate preloved items. Tables available for $5. Connect with neighbours and reduce waste. All welcome.', priceRange:'Free entry', source:'Suggested' },
   ];
 }
 
 function renderExploreResults(events) {
   const results = document.getElementById('explore-results');
-  if(!results || !events) return;
+  if(!results) return;
+  if(!events || events.length === 0) {
+    results.innerHTML = '<div style="text-align:center;padding:30px;color:var(--ink-muted);font-size:0.9rem;">No events found — try a different filter or location</div>';
+    return;
+  }
   const filtered = exploreFilter === 'all' ? events : events.filter(e => e.category === exploreFilter);
   if(filtered.length === 0) {
-    results.innerHTML = '<div style="text-align:center;padding:30px;color:var(--ink-muted);font-size:0.9rem;">No events found for this filter</div>';
+    results.innerHTML = '<div style="text-align:center;padding:30px;color:var(--ink-muted);font-size:0.9rem;">No ' + exploreFilter + ' events found nearby — try All</div>';
     return;
   }
   const catColors = {community:'#f5c842',music:'#c084d8',food:'#f0823c',art:'#e8729a',sports:'#e84040',other:'#40a8e8'};
-  const catEmoji = {community:'🌿',music:'🎵',food:'🍜',art:'🎨',sports:'⚡',other:'✨'};
-  results.innerHTML = filtered.map(ev => `
-    <div class="explore-card" onclick="addExploreEvent(${JSON.stringify(ev).replace(/"/g,'&quot;')})">
-      ${ev.image ? `<img src="${ev.image}" class="explore-img" alt="${esc(ev.name)}" onerror="this.style.display='none'">` : ''}
-      <div style="display:flex;gap:8px;align-items:flex-start;">
-        <span style="font-size:1.1rem;flex-shrink:0;">${catEmoji[ev.category]||'✨'}</span>
-        <div style="flex:1;min-width:0;">
-          <div style="font-weight:600;font-size:0.9rem;color:var(--ink);margin-bottom:3px;">${esc(ev.name)}</div>
-          <div style="font-size:0.78rem;color:var(--ink-muted);">${ev.date?fmtDateFull(ev.date):''}${ev.time?' · '+fmtTime(ev.time):''}</div>
-          ${ev.location?`<div style="font-size:0.78rem;color:var(--ink-muted);">📍 ${esc(ev.location)}</div>`:''}
-        </div>
-        <div style="flex-shrink:0;background:${catColors[ev.category]||'#40a8e8'}22;color:${catColors[ev.category]||'#40a8e8'};font-size:0.7rem;font-weight:600;padding:3px 8px;border-radius:10px;">${ev.source||''}</div>
+  const catLabels = {community:'Community',music:'Music',food:'Food & Drink',art:'Arts',sports:'Active',other:'Event'};
+  results.innerHTML = '';
+  filtered.forEach(ev => {
+    const card = document.createElement('div');
+    card.className = 'explore-card';
+    card.onclick = () => showExploreDetail(ev);
+    const col = catColors[ev.category] || '#40a8e8';
+    card.innerHTML = `
+      ${ev.image ? `<img src="${esc(ev.image)}" class="explore-img" alt="" onerror="this.remove()">` : ''}
+      <div style="display:flex;gap:4px;align-items:center;margin-bottom:6px;flex-wrap:wrap;">
+        <span style="background:${col}22;color:${col};font-size:0.7rem;font-weight:700;padding:2px 8px;border-radius:10px;">${catLabels[ev.category]||'Event'}</span>
+        ${ev.priceRange ? '<span style="background:#f5f5f0;font-size:0.7rem;padding:2px 8px;border-radius:10px;color:var(--ink-muted);">💰 ' + esc(ev.priceRange) + '</span>' : ''}
+        ${ev.source === 'Suggested' ? '<span style="background:#f0f8f0;font-size:0.7rem;padding:2px 8px;border-radius:10px;color:var(--moss);">Near you</span>' : ''}
       </div>
-      <button style="width:100%;margin-top:10px;padding:8px;background:var(--moss);color:#fff;border:none;border-radius:var(--r-sm);font-size:0.82rem;font-weight:600;cursor:pointer;">+ Add to my calendar</button>
-    </div>
-  `).join('');
+      <div style="font-weight:700;font-size:1rem;color:var(--ink);margin-bottom:4px;line-height:1.3;">${esc(ev.name)}</div>
+      <div style="font-size:0.8rem;color:var(--ink-muted);margin-bottom:3px;">📅 ${ev.date ? fmtDateFull(ev.date) : ''}${ev.time ? ' · ' + fmtTime(ev.time) : ''}</div>
+      ${ev.location ? '<div style="font-size:0.8rem;color:var(--ink-muted);margin-bottom:6px;">📍 ' + esc(ev.location) + '</div>' : ''}
+      ${ev.description ? '<div style="font-size:0.82rem;color:var(--ink-light);line-height:1.5;margin-bottom:10px;">' + esc(ev.description.slice(0,140)) + (ev.description.length > 140 ? '...' : '') + '</div>' : ''}
+      <div style="display:flex;gap:8px;">
+        <button onclick="event.stopPropagation();addExploreEventFromObj(JSON.parse(this.closest('.explore-card').dataset.ev))" style="flex:1;padding:9px;background:var(--moss);color:#fff;border:none;border-radius:var(--r-sm);font-size:0.82rem;font-weight:600;cursor:pointer;">+ Add to calendar</button>
+        ${ev.url ? `<button onclick="event.stopPropagation();window.open('${esc(ev.url)}','_blank')" style="padding:9px 12px;background:var(--cream-dark);border:1px solid var(--border);border-radius:var(--r-sm);font-size:0.82rem;cursor:pointer;">↗</button>` : ''}
+      </div>
+    `;
+    card.dataset.ev = JSON.stringify(ev);
+    results.appendChild(card);
+  });
 }
 
-function addExploreEvent(ev) {
-  // Pre-fill the add event modal with explore event data
+function showExploreDetail(ev) {
+  const catColors = {community:'#f5c842',music:'#c084d8',food:'#f0823c',art:'#e8729a',sports:'#e84040',other:'#40a8e8'};
+  const catLabels = {community:'Community',music:'Music',food:'Food & Drink',art:'Arts',sports:'Active',other:'Event'};
+  const col = catColors[ev.category] || '#40a8e8';
+  document.getElementById('explore-detail-modal')?.remove();
+  const overlay = document.createElement('div');
+  overlay.id = 'explore-detail-modal';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(28,28,26,0.6);z-index:500;display:flex;align-items:flex-end;';
+  overlay.onclick = e => { if(e.target === overlay) overlay.remove(); };
+  overlay.innerHTML = `
+    <div style="background:var(--cream);border-radius:20px 20px 0 0;width:100%;max-height:88dvh;overflow-y:auto;padding-bottom:max(40px,env(safe-area-inset-bottom));">
+      <div style="width:44px;height:5px;background:var(--border);border-radius:4px;margin:14px auto 0;cursor:pointer;" onclick="document.getElementById('explore-detail-modal').remove()"></div>
+      ${ev.image ? `<img src="${esc(ev.image)}" style="width:100%;max-height:220px;object-fit:cover;margin-top:12px;display:block;" alt="" onerror="this.remove()">` : '<div style="height:12px;"></div>'}
+      <div style="padding:16px 20px;">
+        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:10px;">
+          <span style="background:${col}22;color:${col};font-size:0.72rem;font-weight:700;padding:3px 10px;border-radius:10px;">${catLabels[ev.category]||'Event'}</span>
+          ${ev.priceRange ? '<span style="background:#f5f5f0;font-size:0.72rem;padding:3px 10px;border-radius:10px;color:var(--ink-muted);">💰 ' + esc(ev.priceRange) + '</span>' : ''}
+        </div>
+        <h2 style="font-family:var(--font-display);font-size:1.4rem;color:var(--ink);margin-bottom:14px;line-height:1.25;">${esc(ev.name)}</h2>
+        <div style="background:#fff;border:1px solid var(--border);border-radius:var(--r);padding:14px;margin-bottom:14px;">
+          ${ev.date ? '<div style="display:flex;gap:10px;margin-bottom:10px;align-items:flex-start;"><span>📅</span><div><div style="font-size:0.7rem;color:var(--ink-muted);text-transform:uppercase;letter-spacing:0.04em;">Date & Time</div><div style="font-weight:500;">' + fmtDateFull(ev.date) + (ev.time ? ' · ' + fmtTime(ev.time) : '') + '</div></div></div>' : ''}
+          ${ev.location ? '<div style="display:flex;gap:10px;align-items:flex-start;"><span>📍</span><div><div style="font-size:0.7rem;color:var(--ink-muted);text-transform:uppercase;letter-spacing:0.04em;">Location</div><div style="font-weight:500;">' + esc(ev.location) + '</div></div></div>' : ''}
+        </div>
+        ${ev.description ? '<div style="margin-bottom:14px;"><div style="font-size:0.75rem;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:var(--ink-muted);margin-bottom:6px;">About this event</div><div style="font-size:0.9rem;color:var(--ink-light);line-height:1.65;">' + esc(ev.description) + '</div></div>' : ''}
+        ${ev.url ? '<a href="' + esc(ev.url) + '" target="_blank" class="btn btn-secondary btn-full" style="margin-bottom:10px;">View full details ↗</a>' : ''}
+        <button class="btn btn-primary btn-full" style="margin-bottom:10px;" onclick="document.getElementById('explore-detail-modal').remove();addExploreEventFromObj(JSON.parse(document.getElementById('explore-detail-modal-data')?.textContent||'null') || currentExploreEv)">+ Add to my calendar</button>
+        <button class="btn btn-ghost btn-full" onclick="document.getElementById('explore-detail-modal').remove()">Close</button>
+      </div>
+    </div>`;
+  // Store ev reference for the add button
+  window.currentExploreEv = ev;
+  // Fix add button to use closure
+  document.body.appendChild(overlay);
+  overlay.querySelector('.btn-primary').onclick = () => { overlay.remove(); addExploreEventFromObj(ev); };
+}
+
+function addExploreEventFromObj(ev) {
+  if(!ev) return;
   openAddModal();
   setTimeout(() => {
     if(ev.name) document.getElementById('ev-name').value = ev.name;
@@ -3987,20 +4139,30 @@ function addExploreEvent(ev) {
     if(ev.time) document.getElementById('ev-time').value = ev.time;
     if(ev.location) document.getElementById('ev-location').value = ev.location;
     if(ev.url) document.getElementById('ev-url').value = ev.url;
+    const notes = [ev.description, ev.priceRange ? 'Price: ' + ev.priceRange : ''].filter(Boolean).join('\n\n');
+    if(notes) document.getElementById('ev-notes').value = notes.slice(0, 500);
     if(ev.category) {
       selectedCat = ev.category;
-      document.querySelectorAll('.cat-item').forEach(c => c.classList.toggle('selected', c.dataset.cat===ev.category));
+      document.querySelectorAll('.cat-item').forEach(c => c.classList.toggle('selected', c.dataset.cat === ev.category));
     }
-    showToast('Event details filled in — review and save 🌱');
-  }, 300);
+    showToast('Event details filled in 🌱');
+  }, 350);
 }
 
 async function renderExplore() {
-  // If we've already fetched, just re-render filtered results
+  if(!exploreLocation) {
+    const saved = DB.get('explore_location');
+    if(saved) {
+      exploreLocation = saved;
+      const locDisplay = document.getElementById('explore-location-display');
+      if(locDisplay && saved.label) { locDisplay.textContent = '📍 ' + saved.label; locDisplay.style.display = 'block'; }
+      const postcodeEl = document.getElementById('explore-postcode');
+      if(postcodeEl) postcodeEl.value = saved.label || '';
+    }
+  }
   if(exploreCache) { renderExploreResults(exploreCache); return; }
-  // Otherwise show prompt to get location
+  if(exploreLocation) await fetchExploreEvents();
 }
-
 // ═══════════════════════════════════════
 // POST-SIGNUP ONBOARDING
 // ═══════════════════════════════════════
@@ -4259,17 +4421,31 @@ function boot() {
   const approvePayload = params.get('approve');
 
   const session = DB.get('session');
-  const savedUser = getCurrentUser();
   const users = getUsers();
 
   let user = null;
-  if(session && session.username && users[session.username]) {
-    user = users[session.username];
-  } else if(savedUser && savedUser.username && users[savedUser.username]) {
-    user = users[savedUser.username];
-  } else if(savedUser) {
-    user = savedUser;
-    if(user.username) { users[user.username] = user; saveUsers(users); }
+
+  // Session username is the strict source of truth — never fall back to random user
+  if(session && session.username) {
+    user = users[session.username] || null;
+    // If not in local users, try currentUser as fallback
+    if(!user) {
+      const saved = getCurrentUser();
+      if(saved && saved.username === session.username) {
+        user = saved;
+        users[user.username] = user;
+        saveUsers(users);
+      }
+    }
+  } else {
+    // No session at all — check currentUser but verify it has a username
+    const saved = getCurrentUser();
+    if(saved && saved.username && users[saved.username]) {
+      // Only use if there's exactly this user (not if multiple users exist — could be wrong one)
+      user = saved;
+      // Create a session for them
+      DB.set('session', { username: saved.username, token: Date.now().toString(36) });
+    }
   }
 
   // Handle approval link — owner opens this to see the join request
