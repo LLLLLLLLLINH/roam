@@ -3987,37 +3987,105 @@ function getExploreTimeRange() {
 async function fetchExploreEvents() {
   const results = document.getElementById('explore-results');
   if(results) results.innerHTML = '<div style="text-align:center;padding:30px;color:var(--ink-muted);"><div style="font-size:1.5rem;margin-bottom:8px;">🔍</div>Finding events near you...</div>';
-  const TICKETMASTER_KEY = 'YOUR_TICKETMASTER_KEY';
+
   const { startISO, endISO, start } = getExploreTimeRange();
   let events = [];
-  if(TICKETMASTER_KEY !== 'YOUR_TICKETMASTER_KEY' && exploreLocation) {
-    try {
-      const url = 'https://app.ticketmaster.com/discovery/v2/events.json?apikey=' + TICKETMASTER_KEY + '&size=20&startDateTime=' + startISO + '&endDateTime=' + endISO + '&countryCode=AU&latlong=' + exploreLocation.lat + ',' + exploreLocation.lng + '&radius=30&unit=km&sort=date,asc';
-      const r = await fetch(url);
-      if(r.ok) {
-        const data = await r.json();
-        events = (data?._embedded?.events || []).map(e => ({
-          id: e.id, name: e.name,
-          date: e.dates?.start?.localDate,
-          time: e.dates?.start?.localTime?.slice(0,5),
-          location: [e._embedded?.venues?.[0]?.name, e._embedded?.venues?.[0]?.address?.line1, e._embedded?.venues?.[0]?.city?.name].filter(Boolean).join(', '),
-          category: guessExploreCategory(e.classifications?.[0]?.genre?.name || e.name),
-          url: e.url,
-          image: e.images?.find(i => i.ratio === '16_9' && i.width > 500)?.url || e.images?.[0]?.url,
-          description: e.info || e.pleaseNote || '',
-          priceRange: e.priceRanges ? '$' + e.priceRanges[0].min + '–$' + e.priceRanges[0].max : null,
-          source: 'Ticketmaster'
-        }));
+
+  if(exploreLocation) {
+    // Try multiple real sources in parallel via our server proxy
+    const sources = await Promise.allSettled([
+      fetchFromEventbrite(exploreLocation, startISO, endISO),
+      fetchFromPeatix(exploreLocation, startISO, endISO),
+    ]);
+
+    for(const result of sources) {
+      if(result.status === 'fulfilled' && result.value?.length > 0) {
+        events.push(...result.value);
       }
-    } catch(_) {}
+    }
+
+    // Deduplicate by name+date
+    const seen = new Set();
+    events = events.filter(e => {
+      const key = (e.name + e.date).toLowerCase().replace(/\s/g,'');
+      if(seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+    // Sort by date
+    events.sort((a,b) => (a.date||'').localeCompare(b.date||'') || (a.time||'').localeCompare(b.time||''));
   }
+
+  // Fallback to curated if nothing found
   if(events.length === 0) {
-    const pad = n => String(n).padStart(2,'0');
     const baseDate = new Date(start + 'T00:00:00');
     events = generateCuratedEvents(exploreLocation?.label || 'your area', baseDate);
   }
+
   exploreCache = events;
   renderExploreResults(events);
+}
+
+// ── Eventbrite via server proxy ────────────────────────────────
+async function fetchFromEventbrite(loc, startISO, endISO) {
+  try {
+    const url = `https://www.eventbrite.com.au/api/v3/destination/search/?page_size=20&online_events_only=false&date_range.start=${startISO}&date_range.end=${endISO}&bbox=${(loc.lat-0.3).toFixed(4)}%2C${(loc.lng-0.3).toFixed(4)}%2C${(loc.lat+0.3).toFixed(4)}%2C${(loc.lng+0.3).toFixed(4)}&include_sponsored=false&dedup=true&expand=image,venue,ticket_availability&page=1`;
+    const proxyResult = await apiFetch('/api/fetch-event-url?url=' + encodeURIComponent(url));
+    if(!proxyResult?.ok) return [];
+
+    // Server returns { json: data } for JSON API responses
+    const data = proxyResult.json || null;
+    if(!data?.events?.results) return [];
+
+    return data.events.results.map(e => ({
+      id: 'eb_' + e.id,
+      name: e.name,
+      date: e.start_date,
+      time: e.start_time?.slice(0,5),
+      location: [e.primary_venue?.name, e.primary_venue?.address?.localized_address_display].filter(Boolean).join(', '),
+      suburb: e.primary_venue?.address?.city,
+      category: guessExploreCategory((e.tags?.map(t=>t.display_name)||[]).join(' ') || e.name),
+      url: e.url,
+      image: e.image?.url,
+      description: e.summary || '',
+      priceRange: e.ticket_availability?.is_free ? 'Free'
+        : e.ticket_availability?.minimum_ticket_price
+          ? '$' + parseFloat(e.ticket_availability.minimum_ticket_price.major_value).toFixed(0)
+            + (e.ticket_availability.maximum_ticket_price ? '–$' + parseFloat(e.ticket_availability.maximum_ticket_price.major_value).toFixed(0) : '+')
+          : null,
+      source: 'Eventbrite'
+    })).filter(e => e.name);
+  } catch(_) { return []; }
+}
+
+// ── Humanitix via server proxy ─────────────────────────────────
+async function fetchFromPeatix(loc, startISO, endISO) {
+  try {
+    const startDate = startISO.slice(0,10);
+    const endDate = endISO.slice(0,10);
+    const url = `https://events.humanitix.com/api/v1/events/search?lat=${loc.lat}&lng=${loc.lng}&radius=30&startDate=${startDate}&endDate=${endDate}&limit=15&status=published`;
+    const proxyResult = await apiFetch('/api/fetch-event-url?url=' + encodeURIComponent(url));
+    if(!proxyResult?.ok) return [];
+
+    const data = proxyResult.json || null;
+    if(!data?.events) return [];
+
+    return (data.events || []).map(e => ({
+      id: 'hx_' + e._id,
+      name: e.name,
+      date: e.startDate?.slice(0,10),
+      time: e.startDate?.slice(11,16),
+      location: [e.location?.name, e.location?.suburb, e.location?.state].filter(Boolean).join(', '),
+      suburb: e.location?.suburb,
+      category: guessExploreCategory((e.tags||[]).join(' ') || e.name),
+      url: 'https://events.humanitix.com/' + e.slug,
+      image: e.coverImage?.url,
+      description: (e.description||'').replace(/<[^>]*>/g,'').slice(0,400),
+      priceRange: e.isFree ? 'Free' : (e.minPrice ? '$' + e.minPrice + (e.maxPrice && e.maxPrice !== e.minPrice ? '–$' + e.maxPrice : '') : null),
+      source: 'Humanitix'
+    })).filter(e => e.name);
+  } catch(_) { return []; }
 }
 
 function guessExploreCategory(genre) {
